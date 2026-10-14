@@ -109,6 +109,7 @@ type InstallPlan struct {
 	PrivilegedOperations []string         `json:"privileged_operations"`
 	RequiresApproval     bool             `json:"requires_approval"`
 	BaseImage            string           `json:"base_image,omitempty"`
+	BinaryEntrypoint     string           `json:"binary_entrypoint,omitempty"`
 }
 
 // LifecycleState tracks application progression and explicit failure modes

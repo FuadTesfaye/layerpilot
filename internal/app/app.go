@@ -170,6 +170,10 @@ func (w *Workflow) Install(ctx context.Context, pkgPath string, autoApprove bool
 	}
 	appRecord.LauncherPath = filepath.Join(home, ".local", "share", "compat", "bin", plan.AppID)
 
+	if plan.BinaryEntrypoint != "" {
+		appRecord.BinaryEntrypoint = plan.BinaryEntrypoint
+	}
+
 	// Install desktop launcher
 	appRecord.Status = domain.StateInstalled
 	_, _ = w.integrator.InstallLauncher(appRecord)
