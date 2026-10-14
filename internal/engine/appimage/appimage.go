@@ -2,7 +2,6 @@ package appimage
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/FuadTesfaye/layerpilot/internal/domain"
 	"github.com/FuadTesfaye/layerpilot/internal/runner"
@@ -189,7 +187,7 @@ func CleanupStaleElectronLocks(appName string) {
 			parts := strings.Split(target, "-")
 			pidStr := parts[len(parts)-1]
 			if pid, err := strconv.Atoi(pidStr); err == nil && pid > 0 {
-				if err := syscall.Kill(pid, 0); err != nil && (errors.Is(err, syscall.ESRCH) || err == syscall.ESRCH) {
+				if isProcessDead(pid) {
 					_ = os.Remove(lockFile)
 					_ = os.Remove(filepath.Join(targetDir, "SingletonCookie"))
 					_ = os.Remove(filepath.Join(targetDir, "SingletonSocket"))
