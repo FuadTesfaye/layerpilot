@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -52,7 +53,7 @@ Categories=Utility;
 	}
 
 	// Update desktop database if available
-	_, _ = d.runner.Run(nil, "update-desktop-database", appDir)
+	_, _ = d.runner.Run(context.Background(), "update-desktop-database", appDir)
 
 	return launcherPath, nil
 }

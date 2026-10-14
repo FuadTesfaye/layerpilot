@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -170,11 +171,11 @@ func (e *Engine) Apply(ctx context.Context, plan *domain.InstallPlan) error {
 	pkgFileInContainer := fmt.Sprintf("/tmp/package.%s", plan.Package.Format)
 	if plan.Package.Format == domain.FormatDeb {
 		// Update and install
-		_, _ = e.runner.Run(ctx, "podman", "exec", containerName, "apt-get", "update")
-		if _, err := e.runner.Run(ctx, "podman", "exec", containerName, "apt-get", "install", "-y", pkgFileInContainer); err != nil {
+		_, _ = e.runner.Run(ctx, "podman", "exec", "-e", "DEBIAN_FRONTEND=noninteractive", containerName, "apt-get", "update")
+		if _, err := e.runner.Run(ctx, "podman", "exec", "-e", "DEBIAN_FRONTEND=noninteractive", containerName, "apt-get", "install", "-y", pkgFileInContainer); err != nil {
 			// Try dpkg + apt-get -f install
-			_, _ = e.runner.Run(ctx, "podman", "exec", containerName, "dpkg", "-i", pkgFileInContainer)
-			if _, errFix := e.runner.Run(ctx, "podman", "exec", containerName, "apt-get", "install", "-f", "-y"); errFix != nil {
+			_, _ = e.runner.Run(ctx, "podman", "exec", "-e", "DEBIAN_FRONTEND=noninteractive", containerName, "dpkg", "-i", pkgFileInContainer)
+			if _, errFix := e.runner.Run(ctx, "podman", "exec", "-e", "DEBIAN_FRONTEND=noninteractive", containerName, "apt-get", "install", "-f", "-y"); errFix != nil {
 				return domain.WrapError(domain.ErrCodeRunnerFailed, "package installation failed inside container", err)
 			}
 		}
@@ -213,15 +214,14 @@ func (e *Engine) Launch(ctx context.Context, app *domain.ApplicationRecord, args
 	}
 
 	execArgs := []string{"exec"}
-	// If CLI application, attach interactive terminal
-	if app.PackageType != domain.PackageTypeGUI {
-		execArgs = append(execArgs, "-it")
-	}
 	execArgs = append(execArgs, containerName, execCmd)
 	execArgs = append(execArgs, args...)
 
-	_, err := e.runner.Run(ctx, "podman", execArgs...)
-	return err
+	cmd := exec.CommandContext(ctx, "podman", execArgs...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func (e *Engine) Uninstall(ctx context.Context, app *domain.ApplicationRecord) error {

@@ -21,3 +21,6 @@ coverage.html
 *.db-wal
 test-scratch/
 tmp/
+test-fixtures/*.deb
+test-fixtures/*.AppImage
+test-fixtures/*.rpm

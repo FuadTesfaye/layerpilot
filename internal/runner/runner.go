@@ -58,6 +58,9 @@ func (r *ExecRunner) Run(ctx context.Context, command string, args ...string) (*
 
 // RunWithOptions executes a command with strict controls: no shell interpolation, timeouts, and buffer caps
 func (r *ExecRunner) RunWithOptions(ctx context.Context, opts RunOptions) (*RunResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if opts.Command == "" {
 		return nil, domain.NewError(domain.ErrCodeRunnerFailed, "empty command", "Specify an executable name", "Subprocess execution failed")
 	}

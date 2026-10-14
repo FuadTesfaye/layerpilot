@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/FuadTesfaye/layerpilot/internal/domain"
@@ -140,12 +141,12 @@ func (e *Engine) Launch(ctx context.Context, app *domain.ApplicationRecord, args
 		env = append(env, "APPIMAGE_EXTRACT_AND_RUN=1")
 	}
 
-	_, err := e.runner.RunWithOptions(ctx, runner.RunOptions{
-		Command: destPath,
-		Args:    args,
-		Env:     env,
-	})
-	return err
+	cmd := exec.CommandContext(ctx, destPath, args...)
+	cmd.Env = env
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func (e *Engine) Uninstall(ctx context.Context, app *domain.ApplicationRecord) error {

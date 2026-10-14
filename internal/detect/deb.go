@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ulikunitz/xz"
+
 	"github.com/FuadTesfaye/layerpilot/internal/domain"
 )
 
@@ -73,6 +75,12 @@ func (d *Detector) parseDebControlTar(archiveName string, r io.Reader, info *dom
 		}
 		defer gzReader.Close()
 		tarReader = tar.NewReader(gzReader)
+	} else if strings.HasSuffix(archiveName, ".xz") {
+		xzReader, err := xz.NewReader(r)
+		if err != nil {
+			return domain.WrapError(domain.ErrCodePackageInvalid, "failed to decompress xz control archive", err)
+		}
+		tarReader = tar.NewReader(xzReader)
 	} else {
 		// Plain tar or unsupported compressor fallback
 		tarReader = tar.NewReader(r)
