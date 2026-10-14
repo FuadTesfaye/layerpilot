@@ -54,13 +54,24 @@ Compatibility is evaluated across 4 explicit tiers:
 
 ## 5. Installation
 
+### Option A: Automated One-Line Install (Linux & macOS)
 ```bash
-# Clone and build
+curl -fsSL https://raw.githubusercontent.com/FuadTesfaye/layerpilot/main/install.sh | bash
+```
+
+### Option B: Via `go install`
+```bash
+go install github.com/FuadTesfaye/layerpilot/cmd/compat@latest
+```
+
+### Option C: Download Pre-built Binary
+Download the pre-compiled binary for your OS and architecture from [GitHub Releases](https://github.com/FuadTesfaye/layerpilot/releases/latest).
+
+### Option D: Build from Source
+```bash
 git clone https://github.com/FuadTesfaye/layerpilot.git
 cd layerpilot
 make build
-
-# Optional: install to ~/.local/bin
 make install
 ```
 
