@@ -130,11 +130,11 @@ const (
 
 // ResourceOwnership tracks exact filesystem, container, and launcher resources created
 type ResourceOwnership struct {
-	ID         string    `json:"id"`
-	AppID      string    `json:"app_id"`
-	Type       string    `json:"type"` // "container", "image", "directory", "desktop_file", "symlink"
-	PathOrID   string    `json:"path_or_id"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID        string    `json:"id"`
+	AppID     string    `json:"app_id"`
+	Type      string    `json:"type"` // "container", "image", "directory", "desktop_file", "symlink"
+	PathOrID  string    `json:"path_or_id"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // ApplicationRecord represents the persistent SQLite record for an installed application
@@ -161,14 +161,14 @@ type ApplicationRecord struct {
 
 // CapabilityReport is returned by an Engine during health and capability probing
 type CapabilityReport struct {
-	EngineID                string            `json:"engine_id"`
-	EngineName              string            `json:"engine_name"`
-	Available               bool              `json:"available"`
-	Version                 string            `json:"version"`
-	SupportedFormats        []PackageFormat   `json:"supported_formats"`
-	SupportedArchitectures  []string          `json:"supported_architectures"`
-	SupportsGUI             bool              `json:"supports_gui"`
-	Rootless                bool              `json:"rootless"`
-	MissingPrerequisites    []string          `json:"missing_prerequisites,omitempty"`
-	DiagnosticDetails       map[string]string `json:"diagnostic_details,omitempty"`
+	EngineID               string            `json:"engine_id"`
+	EngineName             string            `json:"engine_name"`
+	Available              bool              `json:"available"`
+	Version                string            `json:"version"`
+	SupportedFormats       []PackageFormat   `json:"supported_formats"`
+	SupportedArchitectures []string          `json:"supported_architectures"`
+	SupportsGUI            bool              `json:"supports_gui"`
+	Rootless               bool              `json:"rootless"`
+	MissingPrerequisites   []string          `json:"missing_prerequisites,omitempty"`
+	DiagnosticDetails      map[string]string `json:"diagnostic_details,omitempty"`
 }

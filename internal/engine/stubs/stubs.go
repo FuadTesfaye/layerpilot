@@ -95,8 +95,8 @@ type WineEngine struct {
 }
 
 func NewWine(r runner.Runner) *WineEngine { return &WineEngine{runner: r} }
-func (w *WineEngine) ID() string         { return "wine" }
-func (w *WineEngine) Name() string       { return "Wine Translation Engine (Experimental)" }
+func (w *WineEngine) ID() string          { return "wine" }
+func (w *WineEngine) Name() string        { return "Wine Translation Engine (Experimental)" }
 func (w *WineEngine) Probe(ctx context.Context, host *domain.HostProfile) (*domain.CapabilityReport, error) {
 	rep := &domain.CapabilityReport{
 		EngineID:         w.ID(),
