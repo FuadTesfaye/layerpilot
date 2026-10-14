@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/FuadTesfaye/layerpilot/internal/domain"
 	"github.com/FuadTesfaye/layerpilot/internal/runner"
@@ -120,7 +121,14 @@ func (e *Engine) Apply(ctx context.Context, plan *domain.InstallPlan) error {
 if [ ! -c /dev/fuse ]; then
     export APPIMAGE_EXTRACT_AND_RUN=1
 fi
-exec "%s" "$@"
+
+FLAGS=""
+# If running under Wayland, apply GPU & display server compatibility flags
+if [ -n "$WAYLAND_DISPLAY" ]; then
+    FLAGS="--ozone-platform-hint=auto --disable-gpu"
+fi
+
+exec "%s" $FLAGS "$@"
 `, destPath)
 
 	if err := os.WriteFile(wrapperPath, []byte(script), 0755); err != nil {
@@ -141,7 +149,29 @@ func (e *Engine) Launch(ctx context.Context, app *domain.ApplicationRecord, args
 		env = append(env, "APPIMAGE_EXTRACT_AND_RUN=1")
 	}
 
-	cmd := exec.CommandContext(ctx, destPath, args...)
+	launchArgs := args
+	if os.Getenv("WAYLAND_DISPLAY") != "" && app.PackageType == domain.PackageTypeGUI {
+		hasOzone := false
+		hasDisableGPU := false
+		for _, a := range args {
+			if strings.Contains(a, "ozone-platform") {
+				hasOzone = true
+			}
+			if strings.Contains(a, "disable-gpu") {
+				hasDisableGPU = true
+			}
+		}
+		var extra []string
+		if !hasOzone {
+			extra = append(extra, "--ozone-platform-hint=auto")
+		}
+		if !hasDisableGPU {
+			extra = append(extra, "--disable-gpu")
+		}
+		launchArgs = append(extra, launchArgs...)
+	}
+
+	cmd := exec.CommandContext(ctx, destPath, launchArgs...)
 	cmd.Env = env
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

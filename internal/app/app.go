@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/FuadTesfaye/layerpilot/internal/detect"
@@ -161,12 +163,16 @@ func (w *Workflow) Install(ctx context.Context, pkgPath string, autoApprove bool
 		return nil, err
 	}
 
+	// Set wrapper launcher path
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = "."
+	}
+	appRecord.LauncherPath = filepath.Join(home, ".local", "share", "compat", "bin", plan.AppID)
+
 	// Install desktop launcher
 	appRecord.Status = domain.StateInstalled
-	launcherPath, err := w.integrator.InstallLauncher(appRecord)
-	if err == nil {
-		appRecord.LauncherPath = launcherPath
-	}
+	_, _ = w.integrator.InstallLauncher(appRecord)
 
 	if err := w.store.Save(appRecord); err != nil {
 		return nil, err
