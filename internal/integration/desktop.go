@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/FuadTesfaye/layerpilot/internal/domain"
 	"github.com/FuadTesfaye/layerpilot/internal/runner"
@@ -46,7 +47,7 @@ Comment=Managed by compat application manager
 Exec=%s %%U
 Terminal=%s
 Categories=Utility;
-`, app.DisplayName, app.LauncherPath, terminal)
+`, strings.Join(strings.Fields(app.DisplayName), " "), app.LauncherPath, terminal)
 
 	if err := os.WriteFile(launcherPath, []byte(content), 0644); err != nil {
 		return "", err

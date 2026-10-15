@@ -111,3 +111,20 @@ func TestPlannerUnsupportedRefusal(t *testing.T) {
 		t.Errorf("expected %s, got %s", domain.ErrCodeExecutionRefused, compatErr.Code)
 	}
 }
+
+func TestGenerateAppIDSanitizesUntrustedNames(t *testing.T) {
+	cases := map[string]string{
+		"htop":                 "htop-abcdef12",
+		"My_App 2.AppImage":    "my-app-2.appimage-abcdef12",
+		"x$(touch pwned).exe":  "x-touch-pwned-.exe-abcdef12",
+		"evil\"; rm -rf ~; \"": "evil-rm-rf-abcdef12",
+		"../../etc/passwd":     "etc-passwd-abcdef12",
+		"g++":                  "g-abcdef12",
+		"$$$":                  "app-abcdef12",
+	}
+	for name, want := range cases {
+		if got := generateAppID(name, "abcdef1234567890"); got != want {
+			t.Errorf("generateAppID(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
