@@ -23,8 +23,9 @@ Compatibility is evaluated across 4 explicit tiers:
 | :--- | :--- | :--- | :--- | :--- |
 | **Linux (Fedora, Debian, Ubuntu, etc.)** | Applications for another Linux distro (`.deb`, `.rpm`) | Rootless Podman Container | **Tier 1 — Supported** | Active |
 | **Linux (All distributions)** | AppImage applications (`.AppImage`) | Direct Sandboxed Execution | **Tier 1 — Supported** | Active |
-| **Linux** | Windows applications (`.exe`, `.msi`) | Wine prefix manager | **Tier 3 — Experimental** | Testing |
-| **Linux / Non-Apple** | macOS applications (`.dmg`, `.pkg`, `.app`) | N/A | **Tier 4 — Unsupported** | Refused |
+| **Linux** | Windows applications (`.exe`, `.msi`) | Wine prefix manager | **Tier 3 — Experimental** | Active |
+| **Linux** | macOS Electron applications (`.app`, `.dmg` with `app.asar`) | Native Linux Electron Engine | **Tier 2 — Limited** | Active |
+| **Linux / Non-Apple** | macOS Native Mach-O applications (`.app`, `.pkg`) | N/A | **Tier 4 — Unsupported** | Refused |
 | **Windows** | Linux CLI / GUI applications | WSL2 / WSLg | **Tier 2 — Limited** | Architecture Ready |
 | **macOS** | Linux CLI applications | Lima Linux VM | **Tier 2 — Limited** | Architecture Ready |
 
@@ -107,20 +108,25 @@ compat list
 # 6. Launch an installed application
 compat launch <app-id> -- --flag value
 
-# 7. One-shot execution in temporary sandbox without permanent install
+# 7. Install and run Windows applications in isolated Wine prefixes
+compat plan ./app.exe
+compat install ./app.exe
+compat launch <app-id>
+
+# 8. One-shot execution in temporary sandbox without permanent install
 compat run ./example.AppImage
 
-# 8. Check application runtime status and logs
+# 9. Check application runtime status and logs
 compat status <app-id>
 compat logs <app-id>
 
-# 9. Diagnose runtime crashes and apply verified remedies
+# 10. Diagnose runtime crashes and apply verified remedies
 compat fix <app-id>
 
-# 10. Roll back an applied compatibility fix
+# 11. Roll back an applied compatibility fix
 compat undo <app-id>
 
-# 11. Cleanly uninstall and remove all owned resources
+# 12. Cleanly uninstall and remove all owned resources
 compat uninstall <app-id>
 ```
 

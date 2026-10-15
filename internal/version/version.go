@@ -7,7 +7,7 @@ import (
 
 var (
 	// Version is populated at build time via -ldflags
-	Version = "v0.1.0-dev"
+	Version = "v0.2.0"
 	// GitCommit is populated at build time
 	GitCommit = "unknown"
 	// BuildDate is populated at build time
