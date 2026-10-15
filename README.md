@@ -157,7 +157,44 @@ compat engine doctor podman
 
 ---
 
-## 8. Security & Isolation Boundaries
+## 8. `compat lab`: Testing Linux Apps Without a Linux Machine
+
+`compat lab` is built for developers on macOS, Windows, or Linux who build software targeting Linux. It tests artifacts (AppImage, native binary, `.deb`, `.rpm`, tarball) across pinned Linux distributions (Fedora, Ubuntu, Debian, Arch, openSUSE), evaluates honest multi-tier verdicts, and outputs an AI-agent context bundle (`AGENT_CONTEXT.md`) enabling autonomous fixing in a bounded loop.
+
+### Testing Fidelity Tiers
+
+| Tier | Environment | Capabilities | Limitations |
+| :--- | :--- | :--- | :--- |
+| **T0 (Static)** | Static ELF Scan | Glibc symbol check, dynamic dependency prediction, framework profile | No execution; cannot verify runtime behavior |
+| **T1 (Container)** | Rootless Container (Podman / Docker) | Smoke tests, dynamic loader resolution (`ldd`), offline resiliency, headless Xvfb window mapping | Cannot verify native Wayland compositor protocols, SELinux enforcing denials, or host GPU rendering |
+| **T2 (VM)** | Lima / WSL2 / Multipass | Kernel confinement, full init systems, virtualized graphics | Slower startup; requires virtualization (KVM / Hyper-V) |
+| **T3 (Remote/Host)** | Real Bare-Metal / Remote Host | Native Wayland compositor mapping, physical GPU passthrough, host SELinux | Requires physical hardware |
+
+> [!IMPORTANT]
+> **Honest Fidelity Principle**: A T1 container pass **never** claims "works on Fedora desktop". When host-dependent conditions are met (e.g. Electron Wayland blank window P1), `compat lab` reports `not-testable-at-this-tier` instead of reporting a false pass.
+
+### Usage
+
+```bash
+# 1. Check container runtimes, virtualization, and host resources
+compat lab doctor
+
+# 2. Run the test matrix across pinned distros
+compat lab run ./dist/myapp.AppImage
+
+# 3. View the human-readable summary
+compat lab report compat-report/
+
+# 4. Pipe structured AI brief into an autonomous coding agent
+compat lab context compat-report/ | your-coding-agent
+
+# 5. Verify an applied AI fix with zero regressions
+compat lab verify-fix compat-report/ --scenario smoke --artifact ./dist/myapp-fixed.AppImage
+```
+
+---
+
+## 9. Security & Isolation Boundaries
 
 - **Zero Shell Interpolation**: Subprocesses are executed via argument arrays (`exec.CommandContext`). Shell string expansion (`sh -c`) is strictly forbidden.
 - **Rootless by Default**: Containerized applications run in user namespaces without host root privileges.
@@ -166,7 +203,7 @@ compat engine doctor podman
 
 ---
 
-## 9. Tested Applications Catalogue
+## 10. Tested Applications Catalogue
 
 | Application | Package Format | Tested Host | Strategy | Outcome |
 | :--- | :--- | :--- | :--- | :--- |
@@ -176,7 +213,7 @@ compat engine doctor podman
 
 ---
 
-## 10. Contributing & Security Reporting
+## 11. Contributing & Security Reporting
 
 - View [CONTRIBUTING.md](CONTRIBUTING.md) for development workflows and testing requirements.
 - View [SECURITY.md](SECURITY.md) for our vulnerability disclosure policy and threat model.
