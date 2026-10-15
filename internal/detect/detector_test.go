@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/klauspost/compress/zstd"
+
 	"github.com/FuadTesfaye/layerpilot/internal/domain"
 )
 
@@ -149,6 +151,57 @@ func TestDetectCorruptedFile(t *testing.T) {
 }
 
 // Helpers
+// Ubuntu 21.10+ ships debs whose control archive is control.tar.zst. If it is
+// not parsed, Name falls back to the file name and native uninstall breaks.
+func TestDetectDebPackageZstdControl(t *testing.T) {
+	tmpDir := t.TempDir()
+	debPath := filepath.Join(tmpDir, "zstdapp_2.1.0-1ubuntu1_amd64.deb")
+
+	f, err := os.Create(debPath)
+	if err != nil {
+		t.Fatalf("failed to create deb file: %v", err)
+	}
+	f.WriteString("!<arch>\n")
+
+	debBinaryContent := "2.0\n"
+	writeArHeader(t, f, "debian-binary", int64(len(debBinaryContent)))
+	f.WriteString(debBinaryContent)
+
+	controlContent := "Package: zstdapp\nVersion: 2.1.0-1ubuntu1\nArchitecture: amd64\n"
+	var controlTarZst []byte
+	{
+		zw, err := zstd.NewWriter(&byteBufferWriter{buf: &controlTarZst})
+		if err != nil {
+			t.Fatalf("failed creating zstd writer: %v", err)
+		}
+		tw := tar.NewWriter(zw)
+		if err := tw.WriteHeader(&tar.Header{Name: "./control", Mode: 0644, Size: int64(len(controlContent))}); err != nil {
+			t.Fatalf("failed writing tar header: %v", err)
+		}
+		tw.Write([]byte(controlContent))
+		tw.Close()
+		zw.Close()
+	}
+
+	writeArHeader(t, f, "control.tar.zst", int64(len(controlTarZst)))
+	f.Write(controlTarZst)
+	if len(controlTarZst)%2 != 0 {
+		f.WriteString("\n")
+	}
+	f.Close()
+
+	info, err := New().Inspect(debPath)
+	if err != nil {
+		t.Fatalf("Inspect failed: %v", err)
+	}
+	if info.Name != "zstdapp" {
+		t.Errorf("expected name 'zstdapp' from control file, got '%s'", info.Name)
+	}
+	if info.Version != "2.1.0-1ubuntu1" {
+		t.Errorf("expected version '2.1.0-1ubuntu1', got '%s'", info.Version)
+	}
+}
+
 func writeArHeader(t *testing.T, f *os.File, name string, size int64) {
 	hdr := make([]byte, 60)
 	copy(hdr[0:16], fmt.Sprintf("%-16s", name+"/"))

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/ulikunitz/xz"
 
 	"github.com/FuadTesfaye/layerpilot/internal/domain"
@@ -81,6 +82,14 @@ func (d *Detector) parseDebControlTar(archiveName string, r io.Reader, info *dom
 			return domain.WrapError(domain.ErrCodePackageInvalid, "failed to decompress xz control archive", err)
 		}
 		tarReader = tar.NewReader(xzReader)
+	} else if strings.HasSuffix(archiveName, ".zst") {
+		// Ubuntu 21.10+ builds packages with zstd-compressed control archives
+		zstdReader, err := zstd.NewReader(r)
+		if err != nil {
+			return domain.WrapError(domain.ErrCodePackageInvalid, "failed to decompress zstd control archive", err)
+		}
+		defer zstdReader.Close()
+		tarReader = tar.NewReader(zstdReader)
 	} else {
 		// Plain tar or unsupported compressor fallback
 		tarReader = tar.NewReader(r)
