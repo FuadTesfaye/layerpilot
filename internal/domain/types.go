@@ -105,12 +105,14 @@ const (
 
 // StrategyDecision records the outcome of the deterministic strategy planner
 type StrategyDecision struct {
-	EngineID        string      `json:"engine_id"`
-	SupportTier     SupportTier `json:"support_tier"`
-	ReasonCodes     []string    `json:"reason_codes"`
-	Limitations     []string    `json:"limitations"`
-	RequiredActions []string    `json:"required_actions"`
-	EvidenceID      string      `json:"evidence_id,omitempty"`
+	EngineID          string      `json:"engine_id"`
+	StrategyID        string      `json:"strategy_id,omitempty"`
+	SingleRootCommand []string    `json:"single_root_command,omitempty"`
+	SupportTier       SupportTier `json:"support_tier"`
+	ReasonCodes       []string    `json:"reason_codes"`
+	Limitations       []string    `json:"limitations"`
+	RequiredActions   []string    `json:"required_actions"`
+	EvidenceID        string      `json:"evidence_id,omitempty"`
 }
 
 // PlanStep represents a single discrete action in an installation plan

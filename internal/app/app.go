@@ -15,8 +15,11 @@ import (
 	"github.com/FuadTesfaye/layerpilot/internal/domain"
 	"github.com/FuadTesfaye/layerpilot/internal/engine"
 	"github.com/FuadTesfaye/layerpilot/internal/engine/appimage"
+	"github.com/FuadTesfaye/layerpilot/internal/engine/bundle"
+	"github.com/FuadTesfaye/layerpilot/internal/engine/native"
 	"github.com/FuadTesfaye/layerpilot/internal/engine/podman"
 	"github.com/FuadTesfaye/layerpilot/internal/engine/stubs"
+	"github.com/FuadTesfaye/layerpilot/internal/engine/tarball"
 	"github.com/FuadTesfaye/layerpilot/internal/fix"
 	"github.com/FuadTesfaye/layerpilot/internal/hostinfo"
 	"github.com/FuadTesfaye/layerpilot/internal/integration"
@@ -56,6 +59,9 @@ func NewDefaultWorkflow() (*Workflow, error) {
 	reg := engine.NewRegistry()
 	reg.Register(podman.New(r))
 	reg.Register(appimage.New(r))
+	reg.Register(tarball.New(r))
+	reg.Register(native.New(r))
+	reg.Register(bundle.New(r))
 	reg.Register(stubs.NewWSL(r))
 	reg.Register(stubs.NewLima(r))
 	reg.Register(stubs.NewWine(r))

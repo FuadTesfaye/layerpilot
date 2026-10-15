@@ -69,33 +69,49 @@ func (m *PolicyEngine) evaluateLinuxHost(
 	switch pkg.Format {
 	case domain.FormatAppImage:
 		decision.EngineID = "appimage"
-		decision.SupportTier = domain.Tier1Supported
-		decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonDirectExecutionFeasible, domain.ReasonEngineAvailable)
-		if !host.FUSESupport {
-			decision.Limitations = append(decision.Limitations, "FUSE (/dev/fuse) not detected; fallback extraction may be required")
+		if host.FUSESupport && host.Libfuse2Available {
+			decision.StrategyID = "S1"
+			decision.SupportTier = domain.Tier1Supported
+			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonDirectExecutionFeasible, domain.ReasonEngineAvailable)
+		} else {
+			decision.StrategyID = "S2"
+			decision.SupportTier = domain.Tier1Supported
+			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonDirectExecutionFeasible, domain.ReasonEngineAvailable)
+			decision.Limitations = append(decision.Limitations, "Host missing FUSE or libfuse2; user-local extraction fallback will be applied")
 		}
 		if pkg.PackageType == domain.PackageTypeGUI && host.DisplayServer == "headless" {
 			decision.SupportTier = domain.Tier2Limited
 			decision.Limitations = append(decision.Limitations, "Host is headless; GUI display will be unavailable")
 		}
 
-	case domain.FormatDeb:
-		// Debian package on Linux
-		decision.EngineID = "podman"
-		if !engines["podman"] {
-			decision.SupportTier = domain.Tier4Unsupported
-			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonEngineMissing)
-			decision.RequiredActions = append(decision.RequiredActions, "Install podman to run Debian packages in an isolated container")
-			return
-		}
+	case domain.FormatTarball:
+		decision.EngineID = "tarball"
+		decision.StrategyID = "S1"
+		decision.SupportTier = domain.Tier1Supported
+		decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonDirectExecutionFeasible)
 
-		decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonEngineAvailable)
-		if host.Distro == "fedora" || host.Distro == "rhel" || host.Distro == "arch" || host.Distro == "alpine" {
-			// Foreign package on non-Debian host
+	case domain.FormatDeb:
+		if host.DistroFamily == "debian" && (containsString(host.PackageManagers, "apt") || containsString(host.PackageManagers, "dpkg")) {
+			// S3: Native package install on Debian family
+			decision.EngineID = "native"
+			decision.StrategyID = "S3"
 			decision.SupportTier = domain.Tier1Supported
-			decision.Limitations = append(decision.Limitations, "Running inside managed rootless container to prevent host library pollution")
+			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonDirectExecutionFeasible)
+			decision.SingleRootCommand = []string{"pkexec", "apt-get", "install", "-y", pkg.Path}
+			decision.RequiredActions = append(decision.RequiredActions, "Requires single-command root authorization via pkexec/sudo to install package")
 		} else {
+			// S5: Container fallback on foreign host (e.g. Debian package on Fedora)
+			decision.EngineID = "podman"
+			decision.StrategyID = "S5"
+			if !engines["podman"] {
+				decision.SupportTier = domain.Tier4Unsupported
+				decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonEngineMissing)
+				decision.RequiredActions = append(decision.RequiredActions, "Install podman to run Debian packages in an isolated container")
+				return
+			}
 			decision.SupportTier = domain.Tier1Supported
+			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonEngineAvailable)
+			decision.Limitations = append(decision.Limitations, "Foreign package format running inside managed rootless container to prevent host library pollution")
 		}
 
 		if pkg.PackageType == domain.PackageTypeGUI {
@@ -109,15 +125,79 @@ func (m *PolicyEngine) evaluateLinuxHost(
 		}
 
 	case domain.FormatRPM:
-		decision.EngineID = "podman"
-		if !engines["podman"] {
-			decision.SupportTier = domain.Tier4Unsupported
-			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonEngineMissing)
-			decision.RequiredActions = append(decision.RequiredActions, "Install podman to manage RPM container environments")
-			return
+		if host.DistroFamily == "fedora" && containsString(host.PackageManagers, "dnf") {
+			// S3: Native package install on Fedora family
+			decision.EngineID = "native"
+			decision.StrategyID = "S3"
+			decision.SupportTier = domain.Tier1Supported
+			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonDirectExecutionFeasible)
+			decision.SingleRootCommand = []string{"pkexec", "dnf", "install", "-y", pkg.Path}
+			decision.RequiredActions = append(decision.RequiredActions, "Requires single-command root authorization via pkexec/sudo to install package")
+		} else if host.DistroFamily == "suse" && containsString(host.PackageManagers, "zypper") {
+			// S3: Native package install on openSUSE
+			decision.EngineID = "native"
+			decision.StrategyID = "S3"
+			decision.SupportTier = domain.Tier1Supported
+			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonDirectExecutionFeasible)
+			decision.SingleRootCommand = []string{"pkexec", "zypper", "--non-interactive", "install", pkg.Path}
+			decision.RequiredActions = append(decision.RequiredActions, "Requires single-command root authorization via pkexec/sudo to install package")
+		} else {
+			// S5: Container fallback on foreign host (e.g. RPM on Debian/Ubuntu)
+			decision.EngineID = "podman"
+			decision.StrategyID = "S5"
+			if !engines["podman"] {
+				decision.SupportTier = domain.Tier4Unsupported
+				decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonEngineMissing)
+				decision.RequiredActions = append(decision.RequiredActions, "Install podman to manage RPM container environments")
+				return
+			}
+			decision.SupportTier = domain.Tier1Supported
+			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonEngineAvailable)
+			decision.Limitations = append(decision.Limitations, "Foreign package format running inside managed rootless container to prevent host library pollution")
 		}
+
+	case domain.FormatArchPkg:
+		if host.DistroFamily == "arch" && containsString(host.PackageManagers, "pacman") {
+			// S3: Native package install on Arch
+			decision.EngineID = "native"
+			decision.StrategyID = "S3"
+			decision.SupportTier = domain.Tier1Supported
+			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonDirectExecutionFeasible)
+			decision.SingleRootCommand = []string{"pkexec", "pacman", "-U", "--noconfirm", pkg.Path}
+			decision.RequiredActions = append(decision.RequiredActions, "Requires single-command root authorization via pkexec/sudo to install package")
+		} else {
+			// S5: Container fallback on foreign host
+			decision.EngineID = "podman"
+			decision.StrategyID = "S5"
+			if !engines["podman"] {
+				decision.SupportTier = domain.Tier4Unsupported
+				decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonEngineMissing)
+				decision.RequiredActions = append(decision.RequiredActions, "Install podman to run Arch packages in an isolated container")
+				return
+			}
+			decision.SupportTier = domain.Tier1Supported
+			decision.Limitations = append(decision.Limitations, "Foreign package format running inside managed rootless container")
+		}
+
+	case domain.FormatFlatpak:
+		decision.EngineID = "bundle"
+		decision.StrategyID = "S4"
 		decision.SupportTier = domain.Tier1Supported
 		decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonEngineAvailable)
+
+	case domain.FormatSnap:
+		decision.EngineID = "bundle"
+		decision.StrategyID = "S4"
+		decision.SupportTier = domain.Tier2Limited
+		decision.SingleRootCommand = []string{"pkexec", "snap", "install", "--dangerous", pkg.Path}
+		decision.RequiredActions = append(decision.RequiredActions, "Requires single-command root authorization via pkexec/sudo to install snap")
+
+	case domain.FormatSelfExtract:
+		decision.StrategyID = "S6"
+		decision.SupportTier = domain.Tier3Experimental
+		decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonPrivilegedActionRequired)
+		decision.Limitations = append(decision.Limitations, "Self-extracting script installer; execution requires explicit approval and sandbox isolation")
+		decision.RequiredActions = append(decision.RequiredActions, "Pass --yes and inspect script header before executing untrusted installer scripts")
 
 	case domain.FormatWindowsExe:
 		decision.EngineID = "wine"
@@ -130,6 +210,7 @@ func (m *PolicyEngine) evaluateLinuxHost(
 		decision.RequiredActions = append(decision.RequiredActions, "Explicit user confirmation required for Tier 3 Experimental execution")
 
 	case domain.FormatMacOSApp:
+		decision.StrategyID = "S6"
 		decision.SupportTier = domain.Tier4Unsupported
 		decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonHostOSMismatch, domain.ReasonFormatUnsupported)
 		decision.Limitations = append(decision.Limitations, "macOS applications require Apple Darwin kernel and proprietary frameworks; execution on Linux is unsupported")
@@ -139,6 +220,15 @@ func (m *PolicyEngine) evaluateLinuxHost(
 		decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonFormatUnsupported)
 		decision.Limitations = append(decision.Limitations, "Unrecognized package format cannot be executed safely")
 	}
+}
+
+func containsString(slice []string, val string) bool {
+	for _, s := range slice {
+		if strings.EqualFold(s, val) {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *PolicyEngine) evaluateWindowsHost(
