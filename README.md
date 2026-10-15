@@ -34,6 +34,15 @@ Compatibility is evaluated across 4 explicit tiers:
 - **Tier 3 — Experimental**: Best-effort only. Requires explicit user acknowledgement prior to execution.
 - **Tier 4 — Unsupported**: The strategy planner explicitly refuses execution and explains why. No misleading force flags.
 
+### Install Strategy Ladder (Safest → Most Invasive)
+`compat` picks the first viable, safest strategy for the package and host:
+- **S1 — User-local, no root**: AppImages to `~/Applications` or tarballs (`.tar.gz`, `.tar.xz`, `.zip`) extracted to `~/.local/opt/<app>`, wrapper in `~/.local/share/compat/bin` and desktop entry.
+- **S2 — User-local FUSE fallback**: If `libfuse2` is absent, automatically applies `--appimage-extract-and-run` or extracts permanently to avoid root dependencies.
+- **S3 — Native package install**: For packages matching the host distro (`.rpm` on Fedora, `.deb` on Debian, `.pkg.tar.zst` on Arch, `.rpm` on openSUSE). Shows exact single command and requires approval (`pkexec dnf/apt/pacman/zypper`).
+- **S4 — Desktop bundle install**: User-scope Flatpak (rootless) or Snap bundle (`pkexec snap install --dangerous`).
+- **S5 — Container fallback**: Foreign-family packages (`.deb` on Fedora, `.rpm` on Debian) run inside managed, rootless Podman containers to prevent host library pollution.
+- **S6 — Refuse with actionable explanation**: macOS `.dmg`/`.app`, kernel modules, or self-extracting `.run`/`.sh` scripts (Tier 3, header previewed, explicit confirmation required).
+
 ---
 
 ## 3. What is explicitly NOT supported?
@@ -47,8 +56,8 @@ Compatibility is evaluated across 4 explicit tiers:
 
 ### Linux Host
 - Linux kernel 5.10+ (cgroups v2 recommended)
-- Rootless Podman 4.5+ (already installed on modern Fedora, Ubuntu 22.04+, Debian 12+)
-- `fuse3` / `libfuse2` (optional, for direct AppImage mounting)
+- Rootless Podman 4.5+ (optional, for foreign package S5 container isolation)
+- `fuse3` / `libfuse2` (optional, for direct AppImage mounting; S2 extracts automatically if missing)
 
 ---
 
@@ -80,17 +89,17 @@ make install
 ## 6. Quick Start & Workflow
 
 ```bash
-# 1. Inspect a package without making any system changes
-compat inspect ./example.deb
+# 1. Inspect a package without making any system changes (static ELF scan, GLIBC versions, deps)
+compat inspect ./example.AppImage
 
 # 2. Check applicable strategies and support tier
-compat support ./example.deb
+compat support ./example.AppImage
 
 # 3. Preview the deterministic execution plan
-compat plan ./example.deb
+compat plan ./example.AppImage
 
 # 4. Install the package (with explicit user approval)
-compat install ./example.deb
+compat install ./example.AppImage
 
 # 5. List managed applications
 compat list
@@ -98,20 +107,42 @@ compat list
 # 6. Launch an installed application
 compat launch <app-id> -- --flag value
 
-# 7. Check application runtime status and logs
+# 7. One-shot execution in temporary sandbox without permanent install
+compat run ./example.AppImage
+
+# 8. Check application runtime status and logs
 compat status <app-id>
 compat logs <app-id>
 
-# 8. Explain the compatibility strategy and limitations
-compat explain <app-id>
+# 9. Diagnose runtime crashes and apply verified remedies
+compat fix <app-id>
 
-# 9. Cleanly uninstall and remove all owned resources
+# 10. Roll back an applied compatibility fix
+compat undo <app-id>
+
+# 11. Cleanly uninstall and remove all owned resources
 compat uninstall <app-id>
 ```
 
 ---
 
-## 7. Diagnostics (`compat doctor`)
+## 7. Auto-Fix Engine & Pattern Library
+
+When an application fails to launch or hangs without rendering a window (e.g. Electron apps on Wayland), `compat` provides an automated diagnostic and remediation workflow:
+
+1. **Failure Classification**: Evaluates runtime logs against embedded YAML diagnostic patterns while filtering harmless noise (updater 404s, DBus warnings).
+2. **Ranked Remedies**: Presents least-invasive fixes first (e.g. wrapper flags like `--ozone-platform=x11`, permanent extraction, or container isolation).
+3. **Active Verification**: Before declaring a fix successful, `compat` re-launches the application and verifies the process stays alive $\ge 10\text{s}$ AND active window mapping is confirmed via `_NET_CLIENT_LIST` or Wayland compositor IPC.
+4. **Automatic Rollback**: If verification fails, changes are reverted to the pre-fix backup.
+5. **Undo Anytime**: `compat undo <app-id>` restores previous launcher configuration tracked in SQLite.
+
+### Diagnostic Patterns Included
+- **P1 (Electron Wayland Blank Window)**: Detects GPU/Ozone bitmap crashes on Wayland; remediates with `--ozone-platform=x11` or `--disable-gpu`.
+- **P2 (Missing FUSE)**: Detects `libfuse.so.2` missing; remediates with `--appimage-extract-and-run` or user-local extraction.
+- **P3 (SELinux AVC Denial)**: Detects SELinux policy blocks; remediates with `restorecon -v` or `chcon -t bin_t` (never disables SELinux).
+- **P4 (Older Host GLIBC)**: Detects `GLIBC_X.Y not found`; falls back to containerized execution matching binary glibc requirements.
+- **P5 (Chrome Sandbox / Userns)**: Detects unprivileged user namespace blocks; remediates with sysctl elevation or rootless container keep-id.
+- **P6 (Missing Shared Library)**: Detects `error while loading shared libraries: libX.so.Y`; maps to native package manager install command.
 
 `compat doctor` checks host virtualization, user namespaces (`subuid`/`subgid`), display servers, container runtimes, and local storage health:
 
