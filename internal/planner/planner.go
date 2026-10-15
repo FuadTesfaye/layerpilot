@@ -71,9 +71,7 @@ func (p *Planner) Plan(ctx context.Context, pkg *domain.PackageInfo, host *domai
 }
 
 func generateAppID(name, hash string) string {
-	cleanName := strings.ToLower(name)
-	cleanName = strings.ReplaceAll(cleanName, "_", "-")
-	cleanName = strings.ReplaceAll(cleanName, " ", "-")
+	cleanName := sanitizeAppName(name)
 
 	shortHash := "local"
 	if len(hash) >= 8 {
@@ -86,4 +84,26 @@ func generateAppID(name, hash string) string {
 	}
 
 	return fmt.Sprintf("%s-%s", cleanName, shortHash)
+}
+
+// sanitizeAppName keeps only [a-z0-9.-]. App IDs come from untrusted package
+// names and file names, and are used in paths, container names and launchers.
+func sanitizeAppName(name string) string {
+	var b strings.Builder
+	lastDash := false
+	for _, r := range strings.ToLower(name) {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '.':
+			b.WriteRune(r)
+			lastDash = false
+		case !lastDash:
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	clean := strings.Trim(b.String(), "-.")
+	if clean == "" {
+		return "app"
+	}
+	return clean
 }
