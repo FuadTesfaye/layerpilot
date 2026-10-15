@@ -85,11 +85,34 @@ var inspectCmd = &cobra.Command{
 		if info.Version != "" {
 			fmt.Printf("  Version:      %s\n", info.Version)
 		}
+		if info.Framework != "" && info.Framework != "generic" {
+			fmt.Printf("  Framework:    %s\n", info.Framework)
+		}
+		if info.ELFInterpreter != "" {
+			fmt.Printf("  Interpreter:  %s\n", info.ELFInterpreter)
+		}
+		if len(info.GlibcVersions) > 0 {
+			highestGlibc := info.GlibcVersions[len(info.GlibcVersions)-1]
+			fmt.Printf("  Required Glibc: >= %s (%d versioned symbols)\n", highestGlibc, len(info.GlibcVersions))
+		}
+		if len(info.NeededSharedLibs) > 0 {
+			fmt.Printf("  Shared Libs:  %s\n", strings.Join(info.NeededSharedLibs, ", "))
+		}
 		if info.Description != "" {
 			fmt.Printf("  Description:  %s\n", info.Description)
 		}
 		if len(info.Dependencies) > 0 {
 			fmt.Printf("  Dependencies: %s\n", strings.Join(info.Dependencies, ", "))
+		}
+		if len(info.MaintainerScripts) > 0 {
+			var scriptNames []string
+			for sName := range info.MaintainerScripts {
+				scriptNames = append(scriptNames, sName)
+			}
+			fmt.Printf("  Maintainer Scripts: %s (inspect with 'compat plan <file>')\n", strings.Join(scriptNames, ", "))
+		}
+		if info.SelfExtractWarning != "" {
+			fmt.Printf("\n[!] WARNING: %s\n", info.SelfExtractWarning)
 		}
 		fmt.Println("\nNo system changes were made.")
 		return nil

@@ -6,12 +6,17 @@ import "time"
 type PackageFormat string
 
 const (
-	FormatDeb        PackageFormat = "deb"
-	FormatRPM        PackageFormat = "rpm"
-	FormatAppImage   PackageFormat = "appimage"
-	FormatWindowsExe PackageFormat = "exe"
-	FormatMacOSApp   PackageFormat = "app"
-	FormatUnknown    PackageFormat = "unknown"
+	FormatDeb         PackageFormat = "deb"
+	FormatRPM         PackageFormat = "rpm"
+	FormatAppImage    PackageFormat = "appimage"
+	FormatArchPkg     PackageFormat = "archpkg"
+	FormatTarball     PackageFormat = "tarball"
+	FormatFlatpak     PackageFormat = "flatpak"
+	FormatSnap        PackageFormat = "snap"
+	FormatSelfExtract PackageFormat = "run_sh"
+	FormatWindowsExe  PackageFormat = "exe"
+	FormatMacOSApp    PackageFormat = "app"
+	FormatUnknown     PackageFormat = "unknown"
 )
 
 // PackageType indicates if an app is GUI, CLI, or unknown
@@ -25,32 +30,50 @@ const (
 
 // PackageInfo contains safe inspection metadata without executing scripts
 type PackageInfo struct {
-	Path          string            `json:"path"`
-	Format        PackageFormat     `json:"format"`
-	Name          string            `json:"name"`
-	Version       string            `json:"version"`
-	Architecture  string            `json:"architecture"`
-	PackageType   PackageType       `json:"package_type"`
-	SHA256        string            `json:"sha256"`
-	SizeBytes     int64             `json:"size_bytes"`
-	Description   string            `json:"description,omitempty"`
-	Dependencies  []string          `json:"dependencies,omitempty"`
-	BinaryTargets []string          `json:"binary_targets,omitempty"`
-	Metadata      map[string]string `json:"metadata,omitempty"`
+	Path               string            `json:"path"`
+	Format             PackageFormat     `json:"format"`
+	Name               string            `json:"name"`
+	Version            string            `json:"version"`
+	Architecture       string            `json:"architecture"`
+	PackageType        PackageType       `json:"package_type"`
+	SHA256             string            `json:"sha256"`
+	SizeBytes          int64             `json:"size_bytes"`
+	Description        string            `json:"description,omitempty"`
+	Dependencies       []string          `json:"dependencies,omitempty"`
+	BinaryTargets      []string          `json:"binary_targets,omitempty"`
+	ELFInterpreter     string            `json:"elf_interpreter,omitempty"`
+	GlibcVersions      []string          `json:"glibc_versions,omitempty"`
+	NeededSharedLibs   []string          `json:"needed_shared_libs,omitempty"`
+	Framework          string            `json:"framework,omitempty"` // "electron", "qt", "gtk", "generic"
+	MaintainerScripts  map[string]string `json:"maintainer_scripts,omitempty"`
+	SelfExtractWarning string            `json:"self_extract_warning,omitempty"`
+	Metadata           map[string]string `json:"metadata,omitempty"`
 }
 
 // HostProfile details the running machine's environment
 type HostProfile struct {
-	OS              string `json:"os"`                // e.g. "linux", "windows", "darwin"
-	Distro          string `json:"distro"`            // e.g. "fedora", "ubuntu", "arch"
-	DistroVersion   string `json:"distro_version"`    // e.g. "44", "24.04"
-	Arch            string `json:"arch"`              // e.g. "amd64", "arm64"
-	KernelVersion   string `json:"kernel_version"`    // e.g. "6.11.0"
-	DisplayServer   string `json:"display_server"`    // "wayland", "x11", "headless"
-	AudioServer     string `json:"audio_server"`      // "pipewire", "pulseaudio", "none"
-	RootlessPodman  bool   `json:"rootless_podman"`   // true if rootless user namespace works
-	FUSESupport     bool   `json:"fuse_support"`      // true if /dev/fuse or fusermount is available
-	HasVirtualAlloc bool   `json:"has_virtual_alloc"` // true if subuid/subgid mapped
+	OS                 string   `json:"os"`                  // e.g. "linux", "windows", "darwin"
+	Distro             string   `json:"distro"`              // e.g. "fedora", "ubuntu", "arch"
+	DistroFamily       string   `json:"distro_family"`       // e.g. "fedora", "debian", "arch", "suse"
+	DistroVersion      string   `json:"distro_version"`      // e.g. "44", "24.04"
+	Arch               string   `json:"arch"`                // e.g. "amd64", "arm64"
+	KernelVersion      string   `json:"kernel_version"`      // e.g. "6.11.0"
+	DisplayServer      string   `json:"display_server"`      // "wayland", "x11", "headless"
+	SessionType        string   `json:"session_type"`        // "wayland", "x11", "tty"
+	Compositor         string   `json:"compositor"`          // e.g. "GNOME", "KDE", "Sway", "Hyprland"
+	GPUDriver          string   `json:"gpu_driver"`          // e.g. "i915", "amdgpu", "nvidia"
+	AudioServer        string   `json:"audio_server"`        // "pipewire", "pulseaudio", "none"
+	SELinuxMode        string   `json:"selinux_mode"`        // "enforcing", "permissive", "disabled"
+	AppArmorState      string   `json:"apparmor_state"`      // "enabled", "disabled"
+	Libfuse2Available  bool     `json:"libfuse2_available"`  // true if libfuse.so.2 is present
+	UserNamespaces     bool     `json:"user_namespaces"`     // true if unprivileged userns supported
+	NoexecMounts       []string `json:"noexec_mounts"`       // paths mounted with noexec
+	PodmanAvailable    bool     `json:"podman_available"`    // true if podman is installed
+	DistroboxAvailable bool     `json:"distrobox_available"` // true if distrobox is installed
+	PackageManagers    []string `json:"package_managers"`    // e.g. ["dnf", "flatpak"]
+	RootlessPodman     bool     `json:"rootless_podman"`     // true if rootless user namespace works
+	FUSESupport        bool     `json:"fuse_support"`        // true if /dev/fuse or fusermount is available
+	HasVirtualAlloc    bool     `json:"has_virtual_alloc"`   // true if subuid/subgid mapped
 }
 
 // SupportTier defines the 4-tier compatibility classification

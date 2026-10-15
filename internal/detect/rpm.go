@@ -20,6 +20,10 @@ const (
 	rpmTagDescription      = 1005
 	rpmTagGroup            = 1016
 	rpmTagArch             = 1022
+	rpmTagPrein            = 1023
+	rpmTagPostin           = 1024
+	rpmTagPreun            = 1025
+	rpmTagPostun           = 1026
 )
 
 func (d *Detector) inspectRPM(f *os.File, info *domain.PackageInfo) (*domain.PackageInfo, error) {
@@ -108,6 +112,34 @@ func (d *Detector) inspectRPM(f *os.File, info *domain.PackageInfo) (*domain.Pac
 				strings.Contains(groupLower, "graphics") ||
 				strings.Contains(groupLower, "x11") {
 				info.PackageType = domain.PackageTypeGUI
+			}
+		case rpmTagPrein:
+			if val != "" {
+				if info.MaintainerScripts == nil {
+					info.MaintainerScripts = make(map[string]string)
+				}
+				info.MaintainerScripts["prein"] = val
+			}
+		case rpmTagPostin:
+			if val != "" {
+				if info.MaintainerScripts == nil {
+					info.MaintainerScripts = make(map[string]string)
+				}
+				info.MaintainerScripts["postin"] = val
+			}
+		case rpmTagPreun:
+			if val != "" {
+				if info.MaintainerScripts == nil {
+					info.MaintainerScripts = make(map[string]string)
+				}
+				info.MaintainerScripts["preun"] = val
+			}
+		case rpmTagPostun:
+			if val != "" {
+				if info.MaintainerScripts == nil {
+					info.MaintainerScripts = make(map[string]string)
+				}
+				info.MaintainerScripts["postun"] = val
 			}
 		}
 	}

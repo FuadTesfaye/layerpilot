@@ -159,7 +159,14 @@ func (d *Detector) parseDebControlTar(archiveName string, r io.Reader, info *dom
 			if descBuilder.Len() > 0 {
 				info.Description = strings.TrimSpace(descBuilder.String())
 			}
-			return nil
+		} else if cleanName == "preinst" || cleanName == "postinst" || cleanName == "prerm" || cleanName == "postrm" {
+			if info.MaintainerScripts == nil {
+				info.MaintainerScripts = make(map[string]string)
+			}
+			scriptData, err := io.ReadAll(io.LimitReader(tarReader, 64*1024))
+			if err == nil && len(scriptData) > 0 {
+				info.MaintainerScripts[cleanName] = strings.TrimSpace(string(scriptData))
+			}
 		}
 	}
 

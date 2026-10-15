@@ -171,3 +171,146 @@ func (w *byteBufferWriter) Write(p []byte) (n int, err error) {
 	*w.buf = append(*w.buf, p...)
 	return len(p), nil
 }
+
+func TestDetectTarball(t *testing.T) {
+	tmpDir := t.TempDir()
+	tarPath := filepath.Join(tmpDir, "myapp-v1.0.tar.gz")
+
+	f, err := os.Create(tarPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gw := gzip.NewWriter(f)
+	tw := tar.NewWriter(gw)
+
+	hdr := &tar.Header{
+		Name: "bin/myapp",
+		Mode: 0755,
+		Size: 4,
+	}
+	tw.WriteHeader(hdr)
+	tw.Write([]byte("test"))
+	tw.Close()
+	gw.Close()
+	f.Close()
+
+	d := New()
+	info, err := d.Inspect(tarPath)
+	if err != nil {
+		t.Fatalf("Inspect failed: %v", err)
+	}
+	if info.Format != domain.FormatTarball {
+		t.Errorf("expected format tarball, got %s", info.Format)
+	}
+	if len(info.BinaryTargets) == 0 || info.BinaryTargets[0] != "bin/myapp" {
+		t.Errorf("expected binary target bin/myapp, got %v", info.BinaryTargets)
+	}
+}
+
+func TestDetectArchPackage(t *testing.T) {
+	tmpDir := t.TempDir()
+	archPath := filepath.Join(tmpDir, "archapp-2.0-1-x86_64.pkg.tar.gz")
+
+	f, err := os.Create(archPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gw := gzip.NewWriter(f)
+	tw := tar.NewWriter(gw)
+
+	pkginfo := "pkgname = archapp\npkgver = 2.0-1\narch = x86_64\npkgdesc = An Arch package\n"
+	hdr := &tar.Header{
+		Name: ".PKGINFO",
+		Mode: 0644,
+		Size: int64(len(pkginfo)),
+	}
+	tw.WriteHeader(hdr)
+	tw.Write([]byte(pkginfo))
+	tw.Close()
+	gw.Close()
+	f.Close()
+
+	d := New()
+	info, err := d.Inspect(archPath)
+	if err != nil {
+		t.Fatalf("Inspect failed: %v", err)
+	}
+	if info.Format != domain.FormatArchPkg {
+		t.Errorf("expected archpkg format, got %s", info.Format)
+	}
+	if info.Name != "archapp" {
+		t.Errorf("expected archapp name, got %s", info.Name)
+	}
+	if info.Architecture != "amd64" {
+		t.Errorf("expected amd64 arch, got %s", info.Architecture)
+	}
+}
+
+func TestDetectSelfExtract(t *testing.T) {
+	tmpDir := t.TempDir()
+	shPath := filepath.Join(tmpDir, "vendor-installer.run")
+
+	content := "#!/bin/sh\n# Vendor Setup Script\necho 'extracting payload'\nexit 0\n"
+	if err := os.WriteFile(shPath, []byte(content), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	d := New()
+	info, err := d.Inspect(shPath)
+	if err != nil {
+		t.Fatalf("Inspect failed: %v", err)
+	}
+	if info.Format != domain.FormatSelfExtract {
+		t.Errorf("expected run_sh format, got %s", info.Format)
+	}
+	if info.SelfExtractWarning == "" {
+		t.Errorf("expected warning on self-extracting script")
+	}
+}
+
+func TestDetectFlatpakRef(t *testing.T) {
+	tmpDir := t.TempDir()
+	fpPath := filepath.Join(tmpDir, "org.example.App.flatpakref")
+
+	content := "[Flatpak Ref]\nName=org.example.App\nBranch=stable\nTitle=Example App\nUrl=https://repo.example.com\n"
+	if err := os.WriteFile(fpPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	d := New()
+	info, err := d.Inspect(fpPath)
+	if err != nil {
+		t.Fatalf("Inspect failed: %v", err)
+	}
+	if info.Format != domain.FormatFlatpak {
+		t.Errorf("expected flatpak format, got %s", info.Format)
+	}
+	if info.Name != "org.example.App" {
+		t.Errorf("expected org.example.App name, got %s", info.Name)
+	}
+}
+
+func TestScanStaticELFOnSystemBinary(t *testing.T) {
+	catPath := "/usr/bin/cat"
+	if _, err := os.Stat(catPath); err != nil {
+		t.Skip("system binary /usr/bin/cat not available")
+	}
+
+	info := &domain.PackageInfo{
+		Metadata: make(map[string]string),
+	}
+	err := ScanStaticELF(catPath, info)
+	if err != nil {
+		t.Fatalf("ScanStaticELF failed: %v", err)
+	}
+
+	if info.Architecture != "amd64" && info.Architecture != "arm64" {
+		t.Errorf("expected valid architecture, got %s", info.Architecture)
+	}
+	if len(info.NeededSharedLibs) == 0 {
+		t.Errorf("expected needed shared libs, got none")
+	}
+	if len(info.GlibcVersions) == 0 {
+		t.Errorf("expected glibc version requirements, got none")
+	}
+}

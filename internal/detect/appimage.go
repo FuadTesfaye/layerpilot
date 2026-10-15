@@ -1,7 +1,7 @@
 package detect
 
 import (
-	"encoding/binary"
+	"bytes"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,7 +11,6 @@ import (
 )
 
 func (d *Detector) inspectAppImage(f *os.File, info *domain.PackageInfo, magic []byte) (*domain.PackageInfo, error) {
-	// Verify ELF and AppImage magic
 	isAppImage := false
 	appImageType := "unknown"
 
@@ -26,39 +25,54 @@ func (d *Detector) inspectAppImage(f *os.File, info *domain.PackageInfo, magic [
 		}
 	}
 
-	// Read ELF header fields to determine architecture
-	elfHdr := make([]byte, 64)
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		return nil, domain.WrapError(domain.ErrCodePackageInvalid, "cannot seek ELF header", err)
-	}
-	if _, err := io.ReadFull(f, elfHdr); err != nil {
-		return nil, domain.WrapError(domain.ErrCodePackageInvalid, "cannot read ELF header", err)
+	// Perform static ELF scan on the executable wrapper (collects arch, interpreter, DT_NEEDED libs, glibc versions)
+	if _, err := f.Seek(0, io.SeekStart); err == nil {
+		_ = ScanStaticELFReader(f, info)
 	}
 
-	// e_machine is at offset 18 (2 bytes)
-	var machine uint16
-	if elfHdr[5] == 1 { // little endian
-		machine = binary.LittleEndian.Uint16(elfHdr[18:20])
-	} else {
-		machine = binary.BigEndian.Uint16(elfHdr[18:20])
-	}
-
-	switch machine {
-	case 0x3E:
-		info.Architecture = "amd64"
-	case 0xB7:
-		info.Architecture = "arm64"
-	case 0x03:
-		info.Architecture = "386"
-	case 0x28:
-		info.Architecture = "arm"
-	default:
-		info.Architecture = "unknown"
+	// Fallback to raw ELF header parsing for architecture if static scan was partial
+	if info.Architecture == "" {
+		elfHdr := make([]byte, 64)
+		if _, err := f.Seek(0, io.SeekStart); err == nil {
+			if _, err := io.ReadFull(f, elfHdr); err == nil && len(elfHdr) >= 20 {
+				var machine uint16
+				if elfHdr[5] == 1 { // little endian
+					machine = uint16(elfHdr[18]) | uint16(elfHdr[19])<<8
+				} else {
+					machine = uint16(elfHdr[19]) | uint16(elfHdr[18])<<8
+				}
+				switch machine {
+				case 0x3E:
+					info.Architecture = "amd64"
+				case 0xB7:
+					info.Architecture = "arm64"
+				case 0x03:
+					info.Architecture = "386"
+				case 0x28:
+					info.Architecture = "arm"
+				}
+			}
+		}
 	}
 
 	info.Format = domain.FormatAppImage
 	info.PackageType = domain.PackageTypeGUI // AppImages default to desktop applications
 	info.Metadata["appimage_type"] = appImageType
+
+	// Detect squashfs payload (Type 2 AppImages embed squashfs payload after the ELF runtime)
+	searchBuf := make([]byte, 512*1024)
+	if _, err := f.Seek(0, io.SeekStart); err == nil {
+		if n, _ := io.ReadFull(f, searchBuf); n > 0 {
+			if bytes.Contains(searchBuf[:n], []byte("hsqs")) {
+				info.Metadata["payload"] = "squashfs"
+				if appImageType == "unknown" {
+					appImageType = "Type 2"
+					info.Metadata["appimage_type"] = "Type 2"
+					isAppImage = true
+				}
+			}
+		}
+	}
 
 	// Clean base filename
 	base := filepath.Base(info.Path)

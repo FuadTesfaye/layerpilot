@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/FuadTesfaye/layerpilot/internal/domain"
 )
@@ -111,11 +112,36 @@ func (d *Detector) Inspect(pkgPath string) (*domain.PackageInfo, error) {
 		return info, nil
 	}
 
+	// Check for Arch package (.pkg.tar.zst / .pkg.tar.xz)
+	if isArchPackage(pkgPath, magic) {
+		return d.inspectArchPackage(f, info, magic)
+	}
+
+	// Check for Flatpak bundle / .flatpakref
+	if isFlatpak(pkgPath, magic) {
+		return d.inspectFlatpak(f, info)
+	}
+
+	// Check for Snap package
+	if isSnap(pkgPath, magic) {
+		return d.inspectSnap(f, info)
+	}
+
+	// Check for Self-extracting .run / .sh scripts
+	if isSelfExtractingScript(pkgPath, magic) {
+		return d.inspectSelfExtract(f, info)
+	}
+
+	// Check for Tarballs (.tar.gz, .tar.xz, .tar.zst, .zip)
+	if isZip(magic) || isGzip(magic) || isXZ(magic) || isZstd(magic) || isBzip2(magic) || strings.HasSuffix(strings.ToLower(pkgPath), ".tar") {
+		return d.inspectTarball(f, info, magic)
+	}
+
 	info.Format = domain.FormatUnknown
 	return info, domain.NewError(
 		domain.ErrCodeFormatUnsupported,
 		"unrecognized package format",
-		"Supported formats are Debian (.deb), RedHat (.rpm), and AppImage (.AppImage)",
+		"Supported formats are AppImage, Debian (.deb), RedHat (.rpm), Arch (.pkg.tar.zst), Tarball, Flatpak, and Snap",
 		"Package cannot be scheduled for execution",
 	)
 }
