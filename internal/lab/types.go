@@ -37,11 +37,11 @@ const (
 
 // TargetDefinition defines a Linux target environment
 type TargetDefinition struct {
-	ID             string            `json:"id" yaml:"id"`                         // e.g. "fedora:42"
-	DistroFamily   string            `json:"distro_family" yaml:"distro_family"`   // "fedora", "debian", "arch", "suse"
-	Image          string            `json:"image" yaml:"image"`                   // pinned container image e.g. "quay.io/fedora/fedora:42"
-	ImageDigest    string            `json:"image_digest" yaml:"image_digest"`     // SHA256 of image
-	GlibcVersion   string            `json:"glibc_version" yaml:"glibc_version"`   // e.g. "2.41"
+	ID             string            `json:"id" yaml:"id"`                       // e.g. "fedora:42"
+	DistroFamily   string            `json:"distro_family" yaml:"distro_family"` // "fedora", "debian", "arch", "suse"
+	Image          string            `json:"image" yaml:"image"`                 // pinned container image e.g. "quay.io/fedora/fedora:42"
+	ImageDigest    string            `json:"image_digest" yaml:"image_digest"`   // SHA256 of image
+	GlibcVersion   string            `json:"glibc_version" yaml:"glibc_version"` // e.g. "2.41"
 	PackageManager string            `json:"package_manager" yaml:"package_manager"`
 	DefaultUser    string            `json:"default_user" yaml:"default_user"`     // non-root username e.g. "developer"
 	Capabilities   []string          `json:"capabilities" yaml:"capabilities"`     // supported scenario IDs at T1
@@ -50,12 +50,12 @@ type TargetDefinition struct {
 
 // ScenarioDefinition defines a test scenario
 type ScenarioDefinition struct {
-	ID           string   `json:"id" yaml:"id"`                       // e.g. "smoke", "window"
+	ID           string   `json:"id" yaml:"id"` // e.g. "smoke", "window"
 	Name         string   `json:"name" yaml:"name"`
 	Description  string   `json:"description" yaml:"description"`
 	RequiredTier LabTier  `json:"required_tier" yaml:"required_tier"` // minimum tier required
 	TimeoutSec   int      `json:"timeout_sec" yaml:"timeout_sec"`
-	Network      bool     `json:"network" yaml:"network"`             // false by default
+	Network      bool     `json:"network" yaml:"network"` // false by default
 	Command      []string `json:"command,omitempty" yaml:"command,omitempty"`
 }
 
@@ -93,31 +93,31 @@ type AppProfile struct {
 
 // StaticScanResult details static ELF analysis against target definitions
 type StaticScanResult struct {
-	Architecture         string                     `json:"architecture"`
-	ELFInterpreter       string                     `json:"elf_interpreter,omitempty"`
-	RequiredGlibcVersion string                     `json:"required_glibc_version,omitempty"`
-	GlibcCompatibility   map[string]bool            `json:"glibc_compatibility"` // targetID -> compatible
-	NeededSharedLibs     []string                   `json:"needed_shared_libs"`
-	MissingLibsByTarget  map[string][]string        `json:"missing_libs_by_target"`
+	Architecture         string                       `json:"architecture"`
+	ELFInterpreter       string                       `json:"elf_interpreter,omitempty"`
+	RequiredGlibcVersion string                       `json:"required_glibc_version,omitempty"`
+	GlibcCompatibility   map[string]bool              `json:"glibc_compatibility"` // targetID -> compatible
+	NeededSharedLibs     []string                     `json:"needed_shared_libs"`
+	MissingLibsByTarget  map[string][]string          `json:"missing_libs_by_target"`
 	PackageSuggestions   map[string]map[string]string `json:"package_suggestions"` // targetID -> (lib -> pkg)
-	AppProfile           AppProfile                 `json:"app_profile"`
+	AppProfile           AppProfile                   `json:"app_profile"`
 }
 
 // LabReport records the full matrix and context bundle metadata
 type LabReport struct {
-	RunID               string             `json:"run_id"`
-	Timestamp           time.Time          `json:"timestamp"`
-	ArtifactPath        string             `json:"artifact_path"`
-	ArtifactSHA256      string             `json:"artifact_sha256"`
-	ArtifactSize        int64              `json:"artifact_size"`
-	RuntimeID           string             `json:"runtime_id"` // e.g. "podman", "docker"
-	IsEmulated          bool               `json:"is_emulated"`
-	Targets             []string           `json:"targets"`
-	Scenarios           []string           `json:"scenarios"`
-	Results             []TargetResult     `json:"results"`
-	StaticScan          *StaticScanResult  `json:"static_scan,omitempty"`
-	Summary             LabSummary         `json:"summary"`
-	FidelityLimitations []string           `json:"fidelity_limitations"`
+	RunID               string            `json:"run_id"`
+	Timestamp           time.Time         `json:"timestamp"`
+	ArtifactPath        string            `json:"artifact_path"`
+	ArtifactSHA256      string            `json:"artifact_sha256"`
+	ArtifactSize        int64             `json:"artifact_size"`
+	RuntimeID           string            `json:"runtime_id"` // e.g. "podman", "docker"
+	IsEmulated          bool              `json:"is_emulated"`
+	Targets             []string          `json:"targets"`
+	Scenarios           []string          `json:"scenarios"`
+	Results             []TargetResult    `json:"results"`
+	StaticScan          *StaticScanResult `json:"static_scan,omitempty"`
+	Summary             LabSummary        `json:"summary"`
+	FidelityLimitations []string          `json:"fidelity_limitations"`
 }
 
 // LabSummary tallies verdicts across all tests

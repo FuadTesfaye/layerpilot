@@ -93,17 +93,17 @@ func TestStaticScanAndBundleGeneration(t *testing.T) {
 	outDir := filepath.Join(tmpDir, "compat-report")
 
 	report := &LabReport{
-		RunID:               "run-test-1234",
-		Timestamp:           time.Now().UTC(),
-		ArtifactPath:        "/tmp/test-app.AppImage",
-		ArtifactSHA256:      "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-		ArtifactSize:        1024 * 1024,
-		RuntimeID:           "podman",
-		IsEmulated:          false,
-		Targets:             []string{"fedora:42", "debian:12"},
-		Scenarios:           []string{"static-scan"},
-		Results:             results,
-		StaticScan:          scanResult,
+		RunID:          "run-test-1234",
+		Timestamp:      time.Now().UTC(),
+		ArtifactPath:   "/tmp/test-app.AppImage",
+		ArtifactSHA256: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+		ArtifactSize:   1024 * 1024,
+		RuntimeID:      "podman",
+		IsEmulated:     false,
+		Targets:        []string{"fedora:42", "debian:12"},
+		Scenarios:      []string{"static-scan"},
+		Results:        results,
+		StaticScan:     scanResult,
 		Summary: LabSummary{
 			TotalScenarios: len(results),
 			Passed:         1,

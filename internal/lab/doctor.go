@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 )
@@ -35,14 +36,14 @@ type RuntimeStatus struct {
 
 // LabDoctorReport summarizes host capabilities, virtualization, and runtime availability
 type LabDoctorReport struct {
-	HostOS           string          `json:"host_os"`
-	HostArch         string          `json:"host_arch"`
-	Virtualization   bool            `json:"virtualization"`
-	FreeDiskBytes    uint64          `json:"free_disk_bytes"`
-	FreeRAMBytes     uint64          `json:"free_ram_bytes"`
-	RecommendedRuntime RuntimeID      `json:"recommended_runtime"`
-	Runtimes         []RuntimeStatus `json:"runtimes"`
-	EmulationWarning string          `json:"emulation_warning,omitempty"`
+	HostOS             string          `json:"host_os"`
+	HostArch           string          `json:"host_arch"`
+	Virtualization     bool            `json:"virtualization"`
+	FreeDiskBytes      uint64          `json:"free_disk_bytes"`
+	FreeRAMBytes       uint64          `json:"free_ram_bytes"`
+	RecommendedRuntime RuntimeID       `json:"recommended_runtime"`
+	Runtimes           []RuntimeStatus `json:"runtimes"`
+	EmulationWarning   string          `json:"emulation_warning,omitempty"`
 }
 
 // Executor abstracts command execution to enable clean unit testing with mocked outputs
@@ -66,8 +67,8 @@ func (e *OSExecutor) LookPath(file string) (string, error) {
 
 // Doctor inspects system runtimes and host resources
 type Doctor struct {
-	exec    Executor
-	hostOS  string
+	exec     Executor
+	hostOS   string
 	hostArch string
 }
 
@@ -130,6 +131,23 @@ func (d *Doctor) checkResources(rep *LabDoctorReport) {
 	var stat syscall.Statfs_t
 	if err := syscall.Statfs(home, &stat); err == nil {
 		rep.FreeDiskBytes = stat.Bavail * uint64(stat.Bsize)
+	}
+
+	// RAM check on Linux
+	if d.hostOS == "linux" {
+		if data, err := os.ReadFile("/proc/meminfo"); err == nil {
+			for _, line := range strings.Split(string(data), "\n") {
+				if strings.HasPrefix(line, "MemAvailable:") {
+					fields := strings.Fields(line)
+					if len(fields) >= 2 {
+						if kb, err := strconv.ParseUint(fields[1], 10, 64); err == nil {
+							rep.FreeRAMBytes = kb * 1024
+						}
+					}
+					break
+				}
+			}
+		}
 	}
 
 	// Check KVM / virtualization on Linux
