@@ -85,6 +85,15 @@ make build
 make install
 ```
 
+### Uninstallation
+```bash
+# Automated one-line uninstall
+curl -fsSL https://raw.githubusercontent.com/FuadTesfaye/layerpilot/main/install.sh | bash -s -- --uninstall
+
+# Or using the local uninstaller (add --purge to also delete managed app data)
+./uninstall.sh --purge
+```
+
 ---
 
 ## 6. Quick Start & Workflow

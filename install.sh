@@ -4,6 +4,23 @@ set -euo pipefail
 REPO="FuadTesfaye/layerpilot"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 
+# Handle uninstall flag
+if [ "${1:-}" = "--uninstall" ] || [ "${1:-}" = "uninstall" ]; then
+    echo "=> Uninstalling Universal App Compatibility Tool (compat)..."
+    if [ -f "${INSTALL_DIR}/compat" ]; then
+        rm -f "${INSTALL_DIR}/compat"
+        echo "   Removed ${INSTALL_DIR}/compat"
+    fi
+    if [ -f "${INSTALL_DIR}/compat.exe" ]; then
+        rm -f "${INSTALL_DIR}/compat.exe"
+        echo "   Removed ${INSTALL_DIR}/compat.exe"
+    fi
+    echo "=> Successfully uninstalled compat."
+    echo "Note: Managed application data remains in ~/.local/share/compat."
+    echo "To remove application data as well, run: rm -rf ~/.local/share/compat"
+    exit 0
+fi
+
 # Detect OS
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 case "$OS" in
