@@ -1,0 +1,39 @@
+id: chrome-sandbox-userns
+severity: fatal
+cause: "Chrome/Electron multi-process security sandbox failed because unprivileged user namespaces are disabled or restricted by host kernel"
+detect:
+  log_regexes:
+    - "The setuid sandbox is not running"
+    - "No usable sandbox"
+    - "clone: Operation not permitted"
+    - "Failed to move to new namespace"
+    - "set_up_machine_context: clone failed"
+fixes:
+  - id: fix-enable-userns
+    description: "Enable unprivileged user namespaces in host kernel (sysctl kernel.unprivileged_userns_clone=1)"
+    tier: 1
+    action: command
+    command:
+      - "pkexec"
+      - "sysctl"
+      - "-w"
+      - "kernel.unprivileged_userns_clone=1"
+  - id: fix-container-keepid
+    description: "Execute application inside rootless Podman container with --userns=keep-id"
+    tier: 1
+    action: engine_fallback
+    flags:
+      - "--engine=podman"
+  - id: fix-no-sandbox-last-resort
+    description: "LAST RESORT (SECURITY WARNING): Launch with --no-sandbox (disables Chromium web security sandbox; untrusted content can compromise host)"
+    tier: 3
+    action: wrapper_flags
+    flags:
+      - "--no-sandbox"
+verify:
+  min_uptime_seconds: 10
+  require_window: false
+manual_steps:
+  - "To permanently enable user namespaces on Debian/Ubuntu: echo 'kernel.unprivileged_userns_clone=1' | sudo tee /etc/sysctl.d/00-local-userns.conf && sudo sysctl --system"
+  - "On RHEL/CentOS: echo 'user.max_user_namespaces=28633' | sudo tee /etc/sysctl.d/userns.conf && sudo sysctl --system"
+  - "WARNING: Only use --no-sandbox if running trusted, offline applications"

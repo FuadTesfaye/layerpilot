@@ -1,0 +1,21 @@
+id: glibc-version-too-old
+severity: fatal
+cause: "Binary was compiled against a newer glibc than is provided by the host C library runtime"
+detect:
+  log_regexes:
+    - "/libc\\.so\\.6: version `GLIBC_[0-9.]+' not found \\(required by"
+    - "version `GLIBC_[0-9.]+' not found"
+fixes:
+  - id: fix-container-fallback-podman
+    description: "Execute application inside an isolated rootless container (Podman) matching binary glibc requirements"
+    tier: 1
+    action: engine_fallback
+    flags:
+      - "--engine=podman"
+verify:
+  min_uptime_seconds: 10
+  require_window: false
+manual_steps:
+  - "The host C library (glibc) cannot be safely upgraded in-place without breaking host system stability."
+  - "Run the application via compat's managed rootless container engine: 'compat install --engine=podman <app>'"
+  - "If podman is not installed, install it using host package manager (sudo dnf install podman / sudo apt install podman)"

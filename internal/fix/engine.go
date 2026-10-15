@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -264,10 +265,27 @@ func (e *Engine) ApplyFix(ctx context.Context, appID string, fixOption patterns.
 		CreatedAt: time.Now().UTC(),
 	})
 
-	// 2. Modify launcher wrapper
-	newContent := ModifyWrapperContent(string(origBytes), fixOption)
-	if err := os.WriteFile(launcherPath, []byte(newContent), 0755); err != nil {
-		return nil, domain.WrapError(domain.ErrCodeRunnerFailed, "failed updating launcher wrapper", err)
+	// 2. Execute command action if specified
+	if len(fixOption.Command) > 0 {
+		cmdArgs := append([]string{}, fixOption.Command...)
+		if fixOption.Action == "command" && len(cmdArgs) > 0 && (cmdArgs[0] == "restorecon" || cmdArgs[0] == "chcon") {
+			cmdArgs = append(cmdArgs, launcherPath)
+		}
+		cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return nil, domain.WrapError(domain.ErrCodeRunnerFailed, fmt.Sprintf("fix command failed: %v", err), err)
+		}
+	}
+
+	// 3. Modify launcher wrapper if flags or env are specified
+	if len(fixOption.Flags) > 0 || len(fixOption.Env) > 0 {
+		newContent := ModifyWrapperContent(string(origBytes), fixOption)
+		if err := os.WriteFile(launcherPath, []byte(newContent), 0755); err != nil {
+			return nil, domain.WrapError(domain.ErrCodeRunnerFailed, "failed updating launcher wrapper", err)
+		}
 	}
 
 	// 3. Active verification (10s stability + window detection)

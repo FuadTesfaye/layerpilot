@@ -166,6 +166,88 @@ func TestClassifierTableCases(t *testing.T) {
 			expectFatal: false,
 			expectNoise: true,
 		},
+		{
+			name: "P2 missing FUSE detection",
+			logLines: []string{
+				"dlopen(): error opening libfuse.so.2",
+				"Cannot mount AppImage, FUSE kernel module may be missing",
+			},
+			ctx: ExecutionContext{
+				AppType:        "generic",
+				SessionType:    "x11",
+				WindowDetected: false,
+				ProcessAlive:   false,
+				UptimeSeconds:  1,
+			},
+			expectFatal:   true,
+			expectedFatal: "missing-fuse",
+			expectNoise:   false,
+		},
+		{
+			name: "P3 SELinux AVC denial detection",
+			logLines: []string{
+				"type=AVC msg=audit(1697200000.123:456): avc:  denied  { execute } for  pid=1234 comm=\"my-app\" path=\"/home/user/my-app\"",
+			},
+			ctx: ExecutionContext{
+				AppType:        "generic",
+				SessionType:    "wayland",
+				WindowDetected: false,
+				ProcessAlive:   false,
+				UptimeSeconds:  1,
+			},
+			expectFatal:   true,
+			expectedFatal: "selinux-denial",
+			expectNoise:   false,
+		},
+		{
+			name: "P4 missing newer glibc symbol version",
+			logLines: []string{
+				"./app: /lib64/libc.so.6: version `GLIBC_2.38' not found (required by ./app)",
+			},
+			ctx: ExecutionContext{
+				AppType:        "generic",
+				SessionType:    "wayland",
+				WindowDetected: false,
+				ProcessAlive:   false,
+				UptimeSeconds:  1,
+			},
+			expectFatal:   true,
+			expectedFatal: "glibc-version-too-old",
+			expectNoise:   false,
+		},
+		{
+			name: "P5 Chrome sandbox userns failure",
+			logLines: []string{
+				"[1234:1234:1015/090000.123:FATAL:sandbox_linux.cc(374)] Check failed: No usable sandbox!",
+				"The setuid sandbox is not running to provide IPC between the Zygote and the browser node.",
+			},
+			ctx: ExecutionContext{
+				AppType:        "electron",
+				SessionType:    "wayland",
+				WindowDetected: false,
+				ProcessAlive:   false,
+				UptimeSeconds:  2,
+			},
+			expectFatal:   true,
+			expectedFatal: "chrome-sandbox-userns",
+			expectNoise:   false,
+		},
+		{
+			name: "P6 missing shared library ld.so failure",
+			logLines: []string{
+				"./app: error while loading shared libraries: libasound.so.2: cannot open shared object file: No such file or directory",
+			},
+			ctx: ExecutionContext{
+				AppType:        "generic",
+				SessionType:    "wayland",
+				WindowDetected: false,
+				ProcessAlive:   false,
+				UptimeSeconds:  1,
+			},
+			expectFatal:   true,
+			expectedFatal: "missing-shared-library",
+			expectNoise:   false,
+		},
 	}
 
 	for _, tc := range tests {

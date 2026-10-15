@@ -90,22 +90,24 @@ func (c *Classifier) ClassifyLog(logLines []string, ctx ExecutionContext) *Class
 			}
 		}
 
-		// Also consider context-only fatal triggers (e.g., process alive but no window after threshold)
-		contextTriggered := false
-		if pat.Detect.NoWindowCheck && !ctx.WindowDetected && ctx.ProcessAlive && ctx.UptimeSeconds >= 5 {
-			contextTriggered = true
+		// If log regexes are specified, at least one must match
+		if len(pat.Detect.LogRegexes) > 0 && len(matchedLines) == 0 {
+			continue
+		}
+		// If no log regexes are specified, check context triggers (e.g. hung process with no window)
+		contextTriggered := pat.Detect.NoWindowCheck && !ctx.WindowDetected && ctx.ProcessAlive && ctx.UptimeSeconds >= 5
+		if len(pat.Detect.LogRegexes) == 0 && !contextTriggered {
+			continue
 		}
 
-		if len(matchedLines) > 0 || contextTriggered {
-			m := Match{
-				Pattern:      pat,
-				MatchedLines: matchedLines,
-			}
-			if pat.Severity == patterns.SeverityFatal {
-				result.FatalMatches = append(result.FatalMatches, m)
-			} else if pat.Severity == patterns.SeverityNoise {
-				result.NoiseMatches = append(result.NoiseMatches, m)
-			}
+		m := Match{
+			Pattern:      pat,
+			MatchedLines: matchedLines,
+		}
+		if pat.Severity == patterns.SeverityFatal {
+			result.FatalMatches = append(result.FatalMatches, m)
+		} else if pat.Severity == patterns.SeverityNoise {
+			result.NoiseMatches = append(result.NoiseMatches, m)
 		}
 	}
 

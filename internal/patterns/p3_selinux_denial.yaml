@@ -1,0 +1,32 @@
+id: selinux-denial
+severity: fatal
+cause: "Security policy denial (SELinux AVC) prevented application execution or memory mapping"
+detect:
+  log_regexes:
+    - "type=AVC msg=audit.*: avc: +denied"
+    - "avc: +denied +\\{.*\\} for +pid=[0-9]+"
+    - "SELinux is preventing .* from 'execute' accesses"
+    - "SELinux is preventing .* from 'execmod' accesses"
+fixes:
+  - id: fix-selinux-restorecon
+    description: "Restore default SELinux security context label for the target binary (restorecon -v)"
+    tier: 1
+    action: command
+    command:
+      - "restorecon"
+      - "-v"
+  - id: fix-selinux-bin-t
+    description: "Set bin_t executable security context label (chcon -t bin_t)"
+    tier: 2
+    action: command
+    command:
+      - "chcon"
+      - "-t"
+      - "bin_t"
+verify:
+  min_uptime_seconds: 10
+  require_window: false
+manual_steps:
+  - "Inspect full audit trail using 'ausearch -m avc -ts recent'"
+  - "Generate local policy module with 'audit2allow -a -M app_fix' if denials persist"
+  - "CRITICAL: Do NOT run 'setenforce 0' or disable SELinux globally"

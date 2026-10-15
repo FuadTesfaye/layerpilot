@@ -1,0 +1,37 @@
+id: missing-fuse
+severity: fatal
+cause: "AppImage cannot mount its squashfs payload because FUSE kernel module or libfuse.so.2 is missing on host"
+detect:
+  log_regexes:
+    - "dlopen\\(\\): error opening libfuse\\.so\\.2"
+    - "Cannot mount AppImage, FUSE kernel module"
+    - "fuse: device not found"
+    - "fusermount: mount failed: Operation not permitted"
+fixes:
+  - id: fix-appimage-extract-and-run
+    description: "Launch AppImage with --appimage-extract-and-run (bypasses FUSE requirement)"
+    tier: 1
+    action: wrapper_flags
+    flags:
+      - "--appimage-extract-and-run"
+  - id: fix-extract-permanent
+    description: "Extract AppImage contents permanently to user-local directory (~/.local/opt/<app>) and execute AppRun"
+    tier: 1
+    action: extract_permanent
+  - id: fix-install-libfuse
+    description: "Install host FUSE library package using native package manager"
+    tier: 2
+    action: package_install
+    command:
+      - "pkexec"
+      - "dnf"
+      - "install"
+      - "-y"
+      - "fuse-libs"
+verify:
+  min_uptime_seconds: 10
+  require_window: false
+manual_steps:
+  - "On Debian/Ubuntu: sudo apt install -y libfuse2"
+  - "On Fedora/RHEL: sudo dnf install -y fuse-libs"
+  - "On Arch: sudo pacman -S --noconfirm fuse2"
