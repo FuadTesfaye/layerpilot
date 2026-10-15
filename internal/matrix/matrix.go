@@ -210,10 +210,22 @@ func (m *PolicyEngine) evaluateLinuxHost(
 		decision.RequiredActions = append(decision.RequiredActions, "Explicit user confirmation required for Tier 3 Experimental execution")
 
 	case domain.FormatMacOSApp:
-		decision.StrategyID = "S6"
-		decision.SupportTier = domain.Tier4Unsupported
-		decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonHostOSMismatch, domain.ReasonFormatUnsupported)
-		decision.Limitations = append(decision.Limitations, "macOS applications require Apple Darwin kernel and proprietary frameworks; execution on Linux is unsupported")
+		if pkg.Framework == "electron" {
+			decision.StrategyID = "S_ELECTRON_EXTRACT"
+			decision.SupportTier = domain.Tier2Limited
+			decision.EngineID = "tarball"
+			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonArchMatch, domain.ReasonHostOSSupported)
+			decision.Limitations = append(decision.Limitations,
+				"Extracted cross-platform Electron payload from macOS package",
+				"Native Mach-O Node addons may require Linux equivalent binaries",
+			)
+			decision.RequiredActions = append(decision.RequiredActions, "System Electron or Node runtime required for execution")
+		} else {
+			decision.StrategyID = "S6"
+			decision.SupportTier = domain.Tier4Unsupported
+			decision.ReasonCodes = append(decision.ReasonCodes, domain.ReasonHostOSMismatch, domain.ReasonFormatUnsupported)
+			decision.Limitations = append(decision.Limitations, "macOS native applications require Apple Darwin kernel and proprietary Cocoa/Metal frameworks; execution on Linux is unsupported")
+		}
 
 	default:
 		decision.SupportTier = domain.Tier4Unsupported

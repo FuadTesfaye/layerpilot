@@ -70,6 +70,24 @@ func TestEvaluateMacOSRefusal(t *testing.T) {
 	}
 }
 
+func TestEvaluateMacOSElectronPayload(t *testing.T) {
+	pe := New()
+	pkg := &domain.PackageInfo{
+		Format:       domain.FormatMacOSApp,
+		Architecture: "amd64",
+		Framework:    "electron",
+	}
+	host := &domain.HostProfile{
+		OS:   "linux",
+		Arch: "amd64",
+	}
+
+	dec := pe.Evaluate(pkg, host, []string{"tarball"})
+	if dec.SupportTier != domain.Tier2Limited || dec.StrategyID != "S_ELECTRON_EXTRACT" {
+		t.Fatalf("expected Tier 2 Limited with S_ELECTRON_EXTRACT, got tier=%s strategy=%s", dec.SupportTier, dec.StrategyID)
+	}
+}
+
 func TestEvaluateWineExperimental(t *testing.T) {
 	pe := New()
 	pkg := &domain.PackageInfo{

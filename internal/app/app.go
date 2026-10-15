@@ -20,6 +20,7 @@ import (
 	"github.com/FuadTesfaye/layerpilot/internal/engine/podman"
 	"github.com/FuadTesfaye/layerpilot/internal/engine/stubs"
 	"github.com/FuadTesfaye/layerpilot/internal/engine/tarball"
+	"github.com/FuadTesfaye/layerpilot/internal/engine/wine"
 	"github.com/FuadTesfaye/layerpilot/internal/fix"
 	"github.com/FuadTesfaye/layerpilot/internal/hostinfo"
 	"github.com/FuadTesfaye/layerpilot/internal/integration"
@@ -64,7 +65,7 @@ func NewDefaultWorkflow() (*Workflow, error) {
 	reg.Register(bundle.New(r))
 	reg.Register(stubs.NewWSL(r))
 	reg.Register(stubs.NewLima(r))
-	reg.Register(stubs.NewWine(r))
+	reg.Register(wine.New(r))
 
 	pln := planner.New(mat, reg)
 	integ := integration.NewDesktopIntegrator(r)
