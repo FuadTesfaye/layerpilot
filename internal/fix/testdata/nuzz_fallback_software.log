@@ -1,0 +1,6 @@
+DevTools listening on ws://127.0.0.1:9222/devtools/browser/011005b1-172c-4abf-81d2-be34121973d6
+[610212:1014/223843.625920:ERROR:ui/base/x/x11_software_bitmap_presenter.cc:147] XGetWindowAttributes failed for window 1
+(nuzz:618032): Gtk-CRITICAL **: 22:44:15.485: gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed
+[electron-updater] latest-linux.yml HttpError: 404
+dbus[618032]: arguments to dbus_message_new_method_call() were incorrect, assertion "_dbus_check_is_valid_member (method)" failed in file ../../dbus/dbus-message.c line 1373.
+GPU at 0000:00:02.0 has active display audio device

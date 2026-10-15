@@ -1,0 +1,7 @@
+[609336:1014/223824.739443:ERROR:gpu/ipc/client/command_buffer_proxy_impl.cc:285] ContextResult::kTransientFailure: Failed to send GpuControl.CreateCommandBuffer.
+[609115:1014/223824.740405:ERROR:content/browser/gpu/gpu_process_host.cc:1035] GPU process exited unexpectedly: exit_code=139
+(nuzz:609115): Gtk-CRITICAL **: 22:38:24.741: gtk_widget_get_scale_factor: assertion 'GTK_IS_WIDGET (widget)' failed
+[610212:1014/223843.625920:ERROR:ui/base/x/x11_software_bitmap_presenter.cc:147] XGetWindowAttributes failed for window 1
+Checking for update
+Update for version 0.9.0 is not available
+[electron-updater] Error: Cannot find latest-linux.yml: HttpError: 404 Not Found

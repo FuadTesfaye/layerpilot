@@ -1,0 +1,18 @@
+id: harmless-noise
+severity: noise
+cause: "Harmless updater, DBus, or GPU info log noise that does not impact application execution"
+detect:
+  log_regexes:
+    - "latest-linux\\.yml.*HttpError: 404"
+    - "electron-updater.*Cannot find latest-linux\\.yml"
+    - "Checking for update"
+    - "Update for version .* is not available"
+    - "arguments to dbus_message_new_method_call.*were incorrect"
+    - "dbus\\[[0-9]+\\]: arguments to dbus_message_new_method_call"
+    - "GPU at [0-9a-fA-F:.]+ has active display audio device"
+    - "ContextResult::kTransientFailure: Failed to send GpuControl\\.CreateCommandBuffer"
+fixes: []
+verify:
+  min_uptime_seconds: 0
+  require_window: false
+manual_steps: []

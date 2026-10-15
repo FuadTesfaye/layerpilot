@@ -1,0 +1,38 @@
+id: electron-wayland-no-window
+severity: fatal
+cause: "Electron application failed to display a window on Wayland session due to ozone platform or bitmap presenter incompatibilities"
+detect:
+  app_type: electron
+  session_type: wayland
+  log_regexes:
+    - "XGetWindowAttributes failed for window"
+    - "gtk_widget_get_scale_factor: assertion .* failed"
+    - "GPU process exited unexpectedly: exit_code=139"
+  no_window_check: true
+fixes:
+  - id: fix-ozone-x11
+    description: "Configure per-app wrapper and desktop launcher to use X11/XWayland ozone platform"
+    tier: 1
+    action: wrapper_flags
+    flags:
+      - "--ozone-platform=x11"
+  - id: fix-ozone-x11-disable-gpu
+    description: "Run under X11/XWayland with GPU hardware acceleration disabled"
+    tier: 2
+    action: wrapper_flags
+    flags:
+      - "--ozone-platform=x11"
+      - "--disable-gpu"
+  - id: fix-ozone-wayland-native
+    description: "Enable native Wayland ozone platform with window decorations"
+    tier: 2
+    action: wrapper_flags
+    flags:
+      - "--ozone-platform=wayland"
+      - "--enable-features=UseOzonePlatform,WaylandWindowDecorations"
+verify:
+  min_uptime_seconds: 10
+  require_window: true
+manual_steps:
+  - "Launch the application in an X11 desktop session instead of Wayland"
+  - "Verify graphic drivers and Mesa installation for Wayland compatibility"
