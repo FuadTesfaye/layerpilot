@@ -1,0 +1,5 @@
+[1114574:1015/085700.123456:INFO:CONSOLE(1)] "[electron-updater] Cannot find latest-linux.yml: HttpError: 404 Not Found", source: app://bundle/main.js
+[1114574:1015/085700.123789:INFO:CONSOLE(1)] "Checking for update", source: app://bundle/main.js
+[1114574:1015/085700.124000:INFO:CONSOLE(1)] "Update for version 0.9.0 is not available", source: app://bundle/main.js
+[1114574:1015/085700.124500:WARNING:dbus] arguments to dbus_message_new_method_call were incorrect
+GPU at 0000:00:02.0 has active display audio device

@@ -1,0 +1,6 @@
+htop 3.3.0 - (C) 2004-2024 Hisham Muhammad, Christian Hesse
+Released under the GNU GPLv2.
+Terminal size: 120x40
+Probing /proc/stat ... OK
+Loaded 16 CPU cores, 32GB RAM
+Running normally without GUI dependencies.

@@ -1,0 +1,61 @@
+id: electron-wayland-no-window
+status: proposed
+confidence: confirmed
+discovered_with: rea-agents 6.5.0
+applies_to:
+  app_type: electron
+  host:
+    session: wayland
+detect:
+  log_any:
+    - 'XGetWindowAttributes failed'
+    - 'gtk_widget_get_scale_factor.*GTK_IS_WIDGET'
+    - 'GPU process exited unexpectedly: exit_code=139'
+    - 'Failed to send GpuControl\.CreateCommandBuffer'
+  symptom: process_alive_no_window
+noise_excluded:
+  - 'Cannot find channel "latest-linux.yml"'
+  - 'Checking for update'
+  - 'latest-linux\.yml.*HttpError: 404'
+  - 'arguments to dbus_message_new_method_call.*were incorrect'
+  - 'GPU at [0-9a-fA-F:.]+ has active display audio device'
+severity: fatal
+cause: >
+  Electron application on Wayland session crashes its GPU process (SIGSEGV exit_code=139)
+  and its software bitmap presenter fails (XGetWindowAttributes failed for window 1),
+  causing the process tree to hang alive without mapping any window.
+  REA static analysis revealed dist/main.js attempts to set ozone-platform to x11 via
+  app.commandLine.appendSwitch at runtime, but this in-JavaScript switch occurs too late
+  after Electron's internal Ozone/Chromium display backend initialization has already started.
+evidence:
+  - kind: log
+    ref: testdata/nuzz/failing_run.log
+    line: "GPU process exited unexpectedly: exit_code=139"
+  - kind: log
+    ref: testdata/nuzz/failing_run.log
+    line: "XGetWindowAttributes failed for window 1"
+  - kind: rea
+    ref: "rea analyze-javascript-application: dist/main.js lines 42-48 app.commandLine.appendSwitch('ozone-platform', 'x11') executed too late in JavaScript"
+fixes:
+  - id: force-x11
+    tier: per-app
+    apply: wrapper_flags
+    args: ["--ozone-platform=x11"]
+    undo: remove_wrapper_flags
+    verified_on: ["fedora-44-wayland"]
+  - id: force-x11-nogpu
+    tier: per-app
+    apply: wrapper_flags
+    args: ["--ozone-platform=x11", "--disable-gpu"]
+    undo: remove_wrapper_flags
+    verified_on: ["fedora-44-wayland"]
+verify:
+  alive_seconds: 10
+  require_window: true
+  fatal_pattern_must_not_rematch: true
+manual_steps:
+  - "Launch the application in an X11 desktop session instead of Wayland"
+  - "Verify graphic drivers and Mesa installation for Wayland compatibility"
+limitations:
+  - "Requires XWayland support on the host compositor (verified on GNOME Wayland)."
+  - "Disabling GPU acceleration (--disable-gpu) may increase CPU usage during video playback."
