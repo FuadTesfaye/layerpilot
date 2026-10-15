@@ -173,3 +173,16 @@ type CapabilityReport struct {
 	MissingPrerequisites   []string          `json:"missing_prerequisites,omitempty"`
 	DiagnosticDetails      map[string]string `json:"diagnostic_details,omitempty"`
 }
+
+// AppliedFix records an active or rolled-back compatibility fix applied to an application
+type AppliedFix struct {
+	ID         int64     `json:"id"`
+	AppID      string    `json:"app_id"`
+	PatternID  string    `json:"pattern_id"`
+	FixAction  string    `json:"fix_action"`
+	Details    string    `json:"details"`
+	BackupPath string    `json:"backup_path"`
+	TargetPath string    `json:"target_path"`
+	AppliedAt  time.Time `json:"applied_at"`
+	Status     string    `json:"status"` // "applied", "rolled_back"
+}

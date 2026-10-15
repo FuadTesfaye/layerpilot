@@ -41,12 +41,13 @@ type DetectRule struct {
 }
 
 type FixOption struct {
-	ID          string   `yaml:"id" json:"id"`
-	Description string   `yaml:"description" json:"description"`
-	Tier        int      `yaml:"tier" json:"tier"`
-	Action      string   `yaml:"action" json:"action"` // e.g. "wrapper_flags", "package_install", etc.
-	Flags       []string `yaml:"flags,omitempty" json:"flags,omitempty"`
-	Command     []string `yaml:"command,omitempty" json:"command,omitempty"`
+	ID          string            `yaml:"id" json:"id"`
+	Description string            `yaml:"description" json:"description"`
+	Tier        int               `yaml:"tier" json:"tier"`
+	Action      string            `yaml:"action" json:"action"` // e.g. "wrapper_flags", "package_install", etc.
+	Flags       []string          `yaml:"flags,omitempty" json:"flags,omitempty"`
+	Env         map[string]string `yaml:"env,omitempty" json:"env,omitempty"`
+	Command     []string          `yaml:"command,omitempty" json:"command,omitempty"`
 }
 
 type VerifyRule struct {

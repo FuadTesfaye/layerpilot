@@ -8,6 +8,7 @@ detect:
     - "XGetWindowAttributes failed for window"
     - "gtk_widget_get_scale_factor: assertion .* failed"
     - "GPU process exited unexpectedly: exit_code=139"
+    - "ui/ozone/platform/wayland"
   no_window_check: true
 fixes:
   - id: fix-ozone-x11

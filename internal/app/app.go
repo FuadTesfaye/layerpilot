@@ -3,8 +3,11 @@ package app
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/FuadTesfaye/layerpilot/internal/detect"
@@ -14,9 +17,11 @@ import (
 	"github.com/FuadTesfaye/layerpilot/internal/engine/appimage"
 	"github.com/FuadTesfaye/layerpilot/internal/engine/podman"
 	"github.com/FuadTesfaye/layerpilot/internal/engine/stubs"
+	"github.com/FuadTesfaye/layerpilot/internal/fix"
 	"github.com/FuadTesfaye/layerpilot/internal/hostinfo"
 	"github.com/FuadTesfaye/layerpilot/internal/integration"
 	"github.com/FuadTesfaye/layerpilot/internal/matrix"
+	"github.com/FuadTesfaye/layerpilot/internal/patterns"
 	"github.com/FuadTesfaye/layerpilot/internal/planner"
 	"github.com/FuadTesfaye/layerpilot/internal/runner"
 	"github.com/FuadTesfaye/layerpilot/internal/state"
@@ -33,6 +38,7 @@ type Workflow struct {
 	store      *state.Store
 	integrator *integration.DesktopIntegrator
 	doctor     *doctor.Doctor
+	fixEngine  *fix.Engine
 }
 
 // NewDefaultWorkflow initializes all standard subsystems, engines, and durable SQLite store
@@ -58,6 +64,12 @@ func NewDefaultWorkflow() (*Workflow, error) {
 	integ := integration.NewDesktopIntegrator(r)
 	doc := doctor.New(prof, reg, r)
 
+	fixEng, err := fix.NewEngine(store, nil)
+	if err != nil {
+		_ = store.Close()
+		return nil, err
+	}
+
 	return &Workflow{
 		detector:   det,
 		profiler:   prof,
@@ -68,6 +80,7 @@ func NewDefaultWorkflow() (*Workflow, error) {
 		store:      store,
 		integrator: integ,
 		doctor:     doc,
+		fixEngine:  fixEng,
 	}, nil
 }
 
@@ -313,4 +326,88 @@ func (w *Workflow) Close() error {
 		return w.store.Close()
 	}
 	return nil
+}
+
+// Diagnose analyzes application runtime logs for known failure patterns
+func (w *Workflow) Diagnose(ctx context.Context, appID string) (*fix.Diagnosis, error) {
+	return w.fixEngine.Diagnose(ctx, appID)
+}
+
+// ApplyFix applies a chosen remediation option and verifies stability
+func (w *Workflow) ApplyFix(ctx context.Context, appID string, fixOption patterns.FixOption) (*fix.FixResult, error) {
+	return w.fixEngine.ApplyFix(ctx, appID, fixOption)
+}
+
+// UndoFix rolls back the latest applied compatibility fix
+func (w *Workflow) UndoFix(ctx context.Context, appID string) (*fix.UndoResult, error) {
+	return w.fixEngine.UndoFix(ctx, appID)
+}
+
+// FixEngine exposes the fix engine instance
+func (w *Workflow) FixEngine() *fix.Engine {
+	return w.fixEngine
+}
+
+// Run executes a package in one-shot mode without permanent installation
+func (w *Workflow) Run(ctx context.Context, pkgPath string, args []string) error {
+	pkg, err := w.detector.Inspect(pkgPath)
+	if err != nil {
+		return err
+	}
+
+	if pkg.Format != domain.FormatAppImage {
+		return domain.NewError(domain.ErrCodeFormatUnsupported, fmt.Sprintf("one-shot 'run' is currently supported for AppImage packages (got %s)", pkg.Format), "Use 'compat install' to manage this package format", "Execution aborted")
+	}
+
+	// Create temporary staging sandbox
+	tmpDir, err := os.MkdirTemp("", "compat-run-*")
+	if err != nil {
+		return domain.WrapError(domain.ErrCodeRunnerFailed, "failed creating sandbox directory", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	stagedPath := filepath.Join(tmpDir, "app.AppImage")
+	srcFile, err := os.Open(pkgPath)
+	if err != nil {
+		return domain.WrapError(domain.ErrCodePackageInvalid, "cannot open AppImage", err)
+	}
+	defer srcFile.Close()
+
+	destFile, err := os.OpenFile(stagedPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	if err != nil {
+		return domain.WrapError(domain.ErrCodeRunnerFailed, "cannot create temporary AppImage", err)
+	}
+	defer destFile.Close()
+
+	if _, err := io.Copy(destFile, srcFile); err != nil {
+		return domain.WrapError(domain.ErrCodeRunnerFailed, "cannot copy AppImage to temporary sandbox", err)
+	}
+	_ = destFile.Close()
+
+	// Execute with proper display server flags if needed
+	launchArgs := args
+	if os.Getenv("WAYLAND_DISPLAY") != "" && pkg.PackageType == domain.PackageTypeGUI {
+		hasOzone := false
+		for _, a := range args {
+			if strings.Contains(a, "ozone-platform") {
+				hasOzone = true
+				break
+			}
+		}
+		if !hasOzone {
+			launchArgs = append([]string{"--ozone-platform-hint=auto"}, launchArgs...)
+		}
+	}
+
+	env := os.Environ()
+	if _, err := os.Stat("/dev/fuse"); err != nil {
+		env = append(env, "APPIMAGE_EXTRACT_AND_RUN=1")
+	}
+
+	cmd := exec.CommandContext(ctx, stagedPath, launchArgs...)
+	cmd.Env = env
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }

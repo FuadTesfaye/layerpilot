@@ -30,9 +30,14 @@ func init() {
 	rootCmd.AddCommand(doctorCmd)
 	rootCmd.AddCommand(engineCmd)
 	rootCmd.AddCommand(cleanupCmd)
+	rootCmd.AddCommand(fixCmd)
+	rootCmd.AddCommand(undoCmd)
+	rootCmd.AddCommand(runCmd)
 
 	installCmd.Flags().BoolVarP(&autoApprove, "yes", "y", false, "Automatically approve proposed plan")
 	uninstallCmd.Flags().BoolVarP(&autoApprove, "yes", "y", false, "Automatically approve uninstallation")
+	fixCmd.Flags().BoolVarP(&autoApprove, "yes", "y", false, "Automatically approve proposed fix")
+	undoCmd.Flags().BoolVarP(&autoApprove, "yes", "y", false, "Automatically approve fix rollback")
 	logsCmd.Flags().IntVarP(&logLines, "lines", "n", 50, "Number of log lines to retrieve")
 	cleanupCmd.Flags().BoolVar(&dryRun, "dry-run", true, "Preview resources eligible for cleanup without deleting")
 
@@ -283,7 +288,39 @@ var launchCmd = &cobra.Command{
 		appID := args[0]
 		appArgs := args[1:]
 
-		return wf.Launch(context.Background(), appID, appArgs)
+		launchErr := wf.Launch(context.Background(), appID, appArgs)
+		if launchErr != nil {
+			fmt.Printf("\n[!] Application launch exited with error: %v\n", launchErr)
+			diag, diagErr := wf.Diagnose(context.Background(), appID)
+			if diagErr == nil && diag != nil && diag.HasFatal && len(diag.ProposedFixes) > 0 {
+				fmt.Printf("\nDiagnosed Failure Signature: %s\n", diag.Pattern.Cause)
+				fmt.Println("Matched Log Indicators:")
+				for _, ml := range diag.MatchedLines {
+					fmt.Printf("  • %s\n", ml)
+				}
+				fmt.Printf("\nProposed Fix: %s (Tier %d)\n", diag.ProposedFixes[0].Description, diag.ProposedFixes[0].Tier)
+				fmt.Print("Would you like compat to apply this fix and verify now? [y/N]: ")
+				var resp string
+				_, _ = fmt.Scanln(&resp)
+				resp = strings.TrimSpace(strings.ToLower(resp))
+				if resp == "y" || resp == "yes" {
+					fmt.Println("\nApplying fix and running active verification...")
+					fixRes, err := wf.ApplyFix(context.Background(), appID, diag.ProposedFixes[0])
+					if err != nil {
+						return fmt.Errorf("failed applying fix: %w", err)
+					}
+					if fixRes.Success {
+						fmt.Printf("✓ %s\n", fixRes.Message)
+						fmt.Println("To launch again: compat launch " + appID)
+						return nil
+					}
+					fmt.Printf("✗ %s\n", fixRes.Message)
+					return launchErr
+				}
+			}
+			return launchErr
+		}
+		return nil
 	},
 }
 
@@ -552,5 +589,157 @@ var cleanupCmd = &cobra.Command{
 			fmt.Println(a)
 		}
 		return nil
+	},
+}
+
+var fixCmd = &cobra.Command{
+	Use:   "fix <app-id>",
+	Short: "Diagnose application runtime failures, propose ranked fixes, apply with approval, and verify",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		wf, err := getWorkflow()
+		if err != nil {
+			return err
+		}
+		defer wf.Close()
+
+		appID := args[0]
+		ctx := context.Background()
+
+		diag, err := wf.Diagnose(ctx, appID)
+		if err != nil {
+			return err
+		}
+
+		if jsonOutput {
+			return printJSON(diag)
+		}
+
+		if !diag.HasFatal || len(diag.ProposedFixes) == 0 {
+			fmt.Printf("No known fatal failure patterns diagnosed for '%s'.\n", appID)
+			if diag.NoiseCount > 0 {
+				fmt.Printf("  (%d harmless noise log lines filtered out)\n", diag.NoiseCount)
+			}
+			fmt.Println("Ensure the application was launched at least once to capture runtime logs.")
+			return nil
+		}
+
+		fmt.Printf("Compatibility Diagnosis for %s:\n", appID)
+		fmt.Printf("  Identified Issue: %s\n", diag.Pattern.Cause)
+		fmt.Printf("  Pattern ID:       %s\n", diag.Pattern.ID)
+		if diag.NoiseCount > 0 {
+			fmt.Printf("  Noise Filtered:   %d harmless log lines ignored\n", diag.NoiseCount)
+		}
+
+		fmt.Println("\nMatched Diagnostic Evidence:")
+		for _, l := range diag.MatchedLines {
+			fmt.Printf("  • %s\n", l)
+		}
+
+		fmt.Println("\nRanked Proposed Remediation Options:")
+		for i, opt := range diag.ProposedFixes {
+			fmt.Printf("  %d. [Tier %d] %s (%s)\n", i+1, opt.Tier, opt.Description, opt.Action)
+			if len(opt.Flags) > 0 {
+				fmt.Printf("     Flags:   %s\n", strings.Join(opt.Flags, " "))
+			}
+			if len(opt.Env) > 0 {
+				fmt.Printf("     Env:     %v\n", opt.Env)
+			}
+		}
+
+		selectedFix := diag.ProposedFixes[0]
+		if !autoApprove {
+			fmt.Printf("\nApply proposed fix #1 (%s)? [y/N]: ", selectedFix.Description)
+			var resp string
+			_, _ = fmt.Scanln(&resp)
+			resp = strings.TrimSpace(strings.ToLower(resp))
+			if resp != "y" && resp != "yes" {
+				fmt.Println("Fix application cancelled by user.")
+				return nil
+			}
+		}
+
+		fmt.Printf("\nApplying fix '%s'...\n", selectedFix.Description)
+		fmt.Println("Running active verification (10s process stability + window detection)...")
+
+		fixRes, err := wf.ApplyFix(ctx, appID, selectedFix)
+		if err != nil {
+			return err
+		}
+
+		if !fixRes.Success {
+			fmt.Printf("\n✗ Fix verification failed: %s\n", fixRes.Message)
+			if fixRes.RolledBack {
+				fmt.Println("  All changes were safely rolled back to original backup.")
+			}
+			return fmt.Errorf("fix verification failed: %s", fixRes.Message)
+		}
+
+		fmt.Println("\n✓ Fix applied and actively verified!")
+		fmt.Printf("  Details:  %s\n", fixRes.Message)
+		if fixRes.AppliedFix != nil && fixRes.AppliedFix.BackupPath != "" {
+			fmt.Printf("  Backup:   %s\n", fixRes.AppliedFix.BackupPath)
+		}
+		fmt.Printf("\nTo revert this fix at any time: compat undo %s\n", appID)
+		return nil
+	},
+}
+
+var undoCmd = &cobra.Command{
+	Use:   "undo <app-id>",
+	Short: "Revert the latest applied compatibility fix and restore configuration backup",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		wf, err := getWorkflow()
+		if err != nil {
+			return err
+		}
+		defer wf.Close()
+
+		appID := args[0]
+		ctx := context.Background()
+
+		if !autoApprove {
+			fmt.Printf("Revert the most recent fix for '%s' and restore original wrapper backup? [y/N]: ", appID)
+			var resp string
+			_, _ = fmt.Scanln(&resp)
+			resp = strings.TrimSpace(strings.ToLower(resp))
+			if resp != "y" && resp != "yes" {
+				fmt.Println("Undo cancelled.")
+				return nil
+			}
+		}
+
+		res, err := wf.UndoFix(ctx, appID)
+		if err != nil {
+			return err
+		}
+
+		if jsonOutput {
+			return printJSON(res)
+		}
+
+		fmt.Println("\n✓ Fix reverted successfully!")
+		fmt.Printf("  Restored: %s\n", res.RestoredPath)
+		fmt.Printf("  Message:  %s\n", res.Message)
+		return nil
+	},
+}
+
+var runCmd = &cobra.Command{
+	Use:   "run <package-file> [-- <args>...]",
+	Short: "Inspect and run an application one-shot without permanent installation",
+	Args:  cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		wf, err := getWorkflow()
+		if err != nil {
+			return err
+		}
+		defer wf.Close()
+
+		pkgPath := args[0]
+		appArgs := args[1:]
+
+		return wf.Run(context.Background(), pkgPath, appArgs)
 	},
 }

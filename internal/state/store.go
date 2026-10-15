@@ -85,6 +85,17 @@ func (s *Store) migrate() error {
 			details TEXT,
 			timestamp TIMESTAMP NOT NULL
 		);`,
+		`CREATE TABLE IF NOT EXISTS applied_fixes (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			app_id TEXT NOT NULL,
+			pattern_id TEXT NOT NULL,
+			fix_action TEXT NOT NULL,
+			details TEXT,
+			backup_path TEXT,
+			target_path TEXT,
+			applied_at TIMESTAMP NOT NULL,
+			status TEXT NOT NULL
+		);`,
 	}
 
 	for _, q := range queries {
@@ -261,6 +272,66 @@ func (s *Store) LogAudit(appID, operation, details string) error {
 	query := `INSERT INTO audit_logs (app_id, operation, details, timestamp) VALUES (?, ?, ?, ?);`
 	_, err := s.db.Exec(query, appID, operation, details, time.Now().UTC())
 	return err
+}
+
+func (s *Store) RecordFix(fix *domain.AppliedFix) error {
+	if fix.AppliedAt.IsZero() {
+		fix.AppliedAt = time.Now().UTC()
+	}
+	if fix.Status == "" {
+		fix.Status = "applied"
+	}
+	query := `INSERT INTO applied_fixes (app_id, pattern_id, fix_action, details, backup_path, target_path, applied_at, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?);`
+	res, err := s.db.Exec(query, fix.AppID, fix.PatternID, fix.FixAction, fix.Details, fix.BackupPath, fix.TargetPath, fix.AppliedAt, fix.Status)
+	if err != nil {
+		return domain.WrapError(domain.ErrCodeDatabaseError, "failed recording applied fix", err)
+	}
+	id, err := res.LastInsertId()
+	if err == nil {
+		fix.ID = id
+	}
+	return nil
+}
+
+func (s *Store) GetActiveFixes(appID string) ([]domain.AppliedFix, error) {
+	query := `SELECT id, app_id, pattern_id, fix_action, details, backup_path, target_path, applied_at, status
+		FROM applied_fixes WHERE app_id = ? AND status = 'applied' ORDER BY id DESC;`
+	rows, err := s.db.Query(query, appID)
+	if err != nil {
+		return nil, domain.WrapError(domain.ErrCodeDatabaseError, "failed querying active fixes", err)
+	}
+	defer rows.Close()
+
+	var fixes []domain.AppliedFix
+	for rows.Next() {
+		var f domain.AppliedFix
+		if err := rows.Scan(&f.ID, &f.AppID, &f.PatternID, &f.FixAction, &f.Details, &f.BackupPath, &f.TargetPath, &f.AppliedAt, &f.Status); err != nil {
+			return nil, err
+		}
+		fixes = append(fixes, f)
+	}
+	return fixes, nil
+}
+
+func (s *Store) GetLatestActiveFix(appID string) (*domain.AppliedFix, error) {
+	fixes, err := s.GetActiveFixes(appID)
+	if err != nil {
+		return nil, err
+	}
+	if len(fixes) == 0 {
+		return nil, domain.NewError(domain.ErrCodeAppNotFound, "no active fixes found for app: "+appID, "", "")
+	}
+	return &fixes[0], nil
+}
+
+func (s *Store) MarkFixRolledBack(fixID int64) error {
+	query := `UPDATE applied_fixes SET status = 'rolled_back' WHERE id = ?;`
+	_, err := s.db.Exec(query, fixID)
+	if err != nil {
+		return domain.WrapError(domain.ErrCodeDatabaseError, "failed updating fix status to rolled_back", err)
+	}
+	return nil
 }
 
 func (s *Store) Close() error {

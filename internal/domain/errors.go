@@ -17,6 +17,7 @@ const (
 	ErrCodeApprovalRequired      ErrorCode = "APPROVAL_REQUIRED"
 	ErrCodeAppNotFound           ErrorCode = "APPLICATION_NOT_FOUND"
 	ErrCodeStateTransitionFailed ErrorCode = "STATE_TRANSITION_FAILED"
+	ErrCodeStateCorrupt          ErrorCode = "STATE_CORRUPT"
 	ErrCodeRunnerTimeout         ErrorCode = "RUNNER_TIMEOUT"
 	ErrCodeRunnerFailed          ErrorCode = "RUNNER_FAILED"
 	ErrCodePrivilegeDenied       ErrorCode = "PRIVILEGE_DENIED"

@@ -198,38 +198,67 @@ func CleanupStaleElectronLocks(appName string) {
 }
 
 func (e *Engine) Launch(ctx context.Context, app *domain.ApplicationRecord, args []string) error {
-	destPath, err := ExecPathForApp(app.AppID)
-	if err != nil {
-		return err
-	}
-
 	CleanupStaleElectronLocks(app.DisplayName)
 	CleanupStaleElectronLocks(app.AppID)
+
+	var execTarget string
+	var launchArgs []string
+
+	if app.LauncherPath != "" {
+		if fi, err := os.Stat(app.LauncherPath); err == nil && fi.Mode()&0111 != 0 {
+			execTarget = app.LauncherPath
+			launchArgs = args
+		}
+	}
+
+	if execTarget == "" {
+		destPath, err := ExecPathForApp(app.AppID)
+		if err != nil {
+			return err
+		}
+		execTarget = destPath
+		launchArgs = args
+		if os.Getenv("WAYLAND_DISPLAY") != "" && app.PackageType == domain.PackageTypeGUI {
+			hasOzone := false
+			for _, a := range args {
+				if strings.Contains(a, "ozone-platform") {
+					hasOzone = true
+					break
+				}
+			}
+			if !hasOzone {
+				launchArgs = append([]string{"--ozone-platform-hint=auto"}, launchArgs...)
+			}
+		}
+	}
 
 	env := os.Environ()
 	if _, err := os.Stat("/dev/fuse"); err != nil {
 		env = append(env, "APPIMAGE_EXTRACT_AND_RUN=1")
 	}
 
-	launchArgs := args
-	if os.Getenv("WAYLAND_DISPLAY") != "" && app.PackageType == domain.PackageTypeGUI {
-		hasOzone := false
-		for _, a := range args {
-			if strings.Contains(a, "ozone-platform") {
-				hasOzone = true
-				break
-			}
-		}
-		if !hasOzone {
-			launchArgs = append([]string{"--ozone-platform-hint=auto"}, launchArgs...)
-		}
-	}
-
-	cmd := exec.CommandContext(ctx, destPath, launchArgs...)
+	cmd := exec.CommandContext(ctx, execTarget, launchArgs...)
 	cmd.Env = env
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+
+	// Tee stdout and stderr to persistent log file for diagnosis and fix engine
+	home := os.Getenv("HOME")
+	if home == "" {
+		home = "."
+	}
+	logsDir := filepath.Join(home, ".local", "share", "compat", "logs")
+	_ = os.MkdirAll(logsDir, 0755)
+	logPath := filepath.Join(logsDir, app.AppID+".log")
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err == nil {
+		defer logFile.Close()
+		cmd.Stdout = io.MultiWriter(os.Stdout, logFile)
+		cmd.Stderr = io.MultiWriter(os.Stderr, logFile)
+	} else {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+
 	return cmd.Run()
 }
 
