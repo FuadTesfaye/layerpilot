@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 )
 
 // RuntimeID identifies a container or VM backend
@@ -128,10 +127,7 @@ func (d *Doctor) checkResources(rep *LabDoctorReport) {
 		home = "."
 	}
 
-	var stat syscall.Statfs_t
-	if err := syscall.Statfs(home, &stat); err == nil {
-		rep.FreeDiskBytes = stat.Bavail * uint64(stat.Bsize)
-	}
+	rep.FreeDiskBytes = getFreeDiskSpace(home)
 
 	// RAM check on Linux
 	if d.hostOS == "linux" {
