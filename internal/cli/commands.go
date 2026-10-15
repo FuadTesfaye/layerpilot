@@ -33,6 +33,7 @@ func init() {
 	rootCmd.AddCommand(fixCmd)
 	rootCmd.AddCommand(undoCmd)
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(labCmd)
 
 	installCmd.Flags().BoolVarP(&autoApprove, "yes", "y", false, "Automatically approve proposed plan")
 	uninstallCmd.Flags().BoolVarP(&autoApprove, "yes", "y", false, "Automatically approve uninstallation")
