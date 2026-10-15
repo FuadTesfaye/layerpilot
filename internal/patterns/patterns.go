@@ -34,8 +34,8 @@ type Pattern struct {
 }
 
 type DetectRule struct {
-	AppType       string   `yaml:"app_type,omitempty" json:"app_type,omitempty"`             // e.g. "electron"
-	SessionType   string   `yaml:"session_type,omitempty" json:"session_type,omitempty"`     // e.g. "wayland"
+	AppType       string   `yaml:"app_type,omitempty" json:"app_type,omitempty"`         // e.g. "electron"
+	SessionType   string   `yaml:"session_type,omitempty" json:"session_type,omitempty"` // e.g. "wayland"
 	LogRegexes    []string `yaml:"log_regexes" json:"log_regexes"`
 	NoWindowCheck bool     `yaml:"no_window_check,omitempty" json:"no_window_check,omitempty"`
 }

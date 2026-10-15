@@ -196,4 +196,3 @@ func TestEvaluateStrategyLadder(t *testing.T) {
 		t.Fatalf("expected S6 Tier 3 for self-extracting script, got %s / %s", decSelfExtract.StrategyID, decSelfExtract.SupportTier)
 	}
 }
-
